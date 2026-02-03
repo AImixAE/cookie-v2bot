@@ -254,12 +254,12 @@ class CookieBot:
         today_counts = self.db.get_user_counts(user.id, start_ts=today_ts, end_ts=None)
 
         # 计算今天获得的经验值
-        points_map = self.cfg.get("experience", "points", default={}) or {}
+        points_map = self.cfg.get("experience", "points", default={})
         today_exp = 0
         for t, cnt in today_counts.items():
             if t == "total":
                 continue
-            p = int(points_map.get(t, points_map.get("text", 1)))
+            p = int(points_map.get(t, points_map.get("text", default=1)))
             today_exp += p * cnt
 
         # 构建美观的消息
@@ -287,7 +287,7 @@ ID: <code>{user.id}</code>
                     "sticker": "🎨",
                     "other": "📦",
                 }
-                emoji = emoji_map.get(k, "📌")
+                emoji = emoji_map.get(k, default="📌")
                 txt += f"{emoji} {k}: <code>{v}</code>\n"
 
         txt += "\n📈 <b>累计统计</b>\n"
@@ -302,7 +302,7 @@ ID: <code>{user.id}</code>
                     "sticker": "🎨",
                     "other": "📦",
                 }
-                emoji = emoji_map.get(k, "📌")
+                emoji = emoji_map.get(k, default="📌")
                 txt += f"{emoji} {k}: <code>{v}</code>\n"
 
         txt += """
@@ -514,7 +514,7 @@ ID: <code>{user.id}</code>
             )
             if achievement_info:
                 # 格式化时间
-                ts = achievement.get("ts", 0)
+                ts = achievement.get("ts", default=0)
                 time_str = (
                     datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
                     if ts
@@ -526,7 +526,7 @@ ID: <code>{user.id}</code>
                 )
             else:
                 # 格式化时间
-                ts = achievement.get("ts", 0)
+                ts = achievement.get("ts", default=0)
                 time_str = (
                     datetime.fromtimestamp(ts).strftime("%Y-%m-%d %H:%M:%S")
                     if ts
@@ -606,7 +606,7 @@ ID: <code>{user.id}</code>
         # 格式化卡片介绍
         lines = []
         for c in cards:
-            point = c.get("point", 0)
+            point = c.get("point", default=0)
             lines.append(
                 f"{c['emoji']} <b><code>{c['name']}</code></b> — "
                 f"{c['description']} <i>(需要 {point} 经验值)</i>"
@@ -632,7 +632,7 @@ ID: <code>{user.id}</code>
         # 统计每张卡片的数量
         card_counts = {}
         for card_name in user_cards:
-            card_counts[card_name] = card_counts.get(card_name, 0) + 1
+            card_counts[card_name] = card_counts.get(card_name, default=0) + 1
         # 格式化卡片介绍
         lines = []
         warnings = []
@@ -685,7 +685,7 @@ ID: <code>{user.id}</code>
             return
 
         # 获取卡片价格
-        card_point = card_info.get("point", 0)
+        card_point = card_info.get("point", default=0)
         if card_point <= 0:
             await update.effective_message.reply_html(
                 f"卡片 {card_name} 价格未设置，无法购买"
@@ -718,14 +718,14 @@ ID: <code>{user.id}</code>
         根据经验值计算用户等级
         使用 delta 格式的等级配置
         """
-        level_configs = self.levels.get("levels", []) or []
+        level_configs = self.levels.get("levels", default=[])
         if not level_configs:
             return 1
 
         # 计算每个等级需要的总经验值
         total_exp_needed = 0
         for i, level_config in enumerate(level_configs):
-            delta = level_config.get("delta", 0)
+            delta = level_config.get("delta", default=0)
             total_exp_needed += delta
             if exp < total_exp_needed:
                 return i + 1
@@ -748,7 +748,7 @@ ID: <code>{user.id}</code>
         total_exp_needed = 0
         for i in range(current_level):
             if i < len(level_configs):
-                total_exp_needed += level_configs[i].get("delta", 0)
+                total_exp_needed += level_configs[i].get("delta", default=0)
 
         return total_exp_needed
 
@@ -779,8 +779,8 @@ ID: <code>{user.id}</code>
 
     async def _add_exp(self, user, chat, msg_type, ts, update, context):
         # compute points and daily cap
-        points_map = self.cfg.get("experience", "points", default={}) or {}
-        point = int(points_map.get(msg_type, points_map.get("text", 1)))
+        points_map = self.cfg.get("experience", "points", default={})
+        point = int(points_map.get(msg_type, points_map.get("text", default=1)))
         daily_limit = int(self.cfg.get("experience", "daily_limit", default=150) or 150)
 
         # today's range
@@ -792,7 +792,7 @@ ID: <code>{user.id}</code>
         for t, cnt in counts.items():
             if t == "total":
                 continue
-            p = int(points_map.get(t, points_map.get("text", 1)))
+            p = int(points_map.get(t, points_map.get("text", default=1)))
             earned_today += p * cnt
 
         to_add = 0
@@ -825,9 +825,9 @@ ID: <code>{user.id}</code>
         try:
             # 获取用户的当前统计数据
             user_counts = self.db.get_user_counts(user.id, start_ts=None, end_ts=None)
-            total_messages = user_counts.get("total", 0)
-            image_count = user_counts.get("photo", 0)
-            sticker_count = user_counts.get("sticker", 0)
+            total_messages = user_counts.get("total", default=0)
+            image_count = user_counts.get("photo", default=0)
+            sticker_count = user_counts.get("sticker", default=0)
 
             # 获取所有成就
             all_achievements = self.achievements.get("achievements")
@@ -840,7 +840,7 @@ ID: <code>{user.id}</code>
                 name = achievement["name"]
                 emoji = achievement["emoji"]
                 description = achievement["description"]
-                condition = achievement.get("type", [])
+                condition = achievement.get("type", default=[])
 
                 # 跳过用户已有的成就
                 if name in user_achievement_names:
@@ -901,7 +901,7 @@ ID: <code>{user.id}</code>
             today_counts = self.db.get_user_counts(
                 user.id, start_ts=today_ts, end_ts=None
             )
-            today_messages = today_counts.get("total", 0)
+            today_messages = today_counts.get("total", default=0)
 
             # 如果用户今天已经发送过消息，说明不是第一条消息，跳过徽章检查
             # 这样可以确保只有每天的第一条消息才会触发徽章检查
@@ -909,7 +909,7 @@ ID: <code>{user.id}</code>
                 pass
             else:
                 # 获取用户的今日统计数据
-                today_stickers = today_counts.get("sticker", 0)
+                today_stickers = today_counts.get("sticker", default=0)
 
                 # 获取所有徽章
                 all_badges = self.badges.get("badges", default=[])
@@ -919,7 +919,7 @@ ID: <code>{user.id}</code>
                     name = badge["name"]
                     emoji = badge["emoji"]
                     description = badge["description"]
-                    condition = badge.get("type", [])
+                    condition = badge.get("type", default=[])
 
                     # 跳过用户已有的徽章
                     if name in user_badge_names:
