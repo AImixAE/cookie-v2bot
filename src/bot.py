@@ -131,48 +131,7 @@ class CookieBot:
         except Exception:
             logger.exception("无法记录群聊 %s", getattr(chat, "id", None))
 
-        # compute points and daily cap
-        points_map = self.cfg.get("experience", "points", default={}) or {}
-        point = int(points_map.get(msg_type, points_map.get("text", 1)))
-        daily_limit = int(self.cfg.get("experience", "daily_limit", default=150) or 150)
-
-        # today's range
-        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        start_ts = int(today_start.timestamp())
-        counts = self.db.get_user_counts(user.id, start_ts=start_ts, end_ts=None)
-        # compute current earned today
-        earned_today = 0
-        for t, cnt in counts.items():
-            if t == "total":
-                continue
-            p = int(points_map.get(t, points_map.get("text", 1)))
-            earned_today += p * cnt
-
-        to_add = 0
-        if earned_today < daily_limit:
-            allowed = daily_limit - earned_today
-            to_add = min(point, allowed)
-
-        # record message and add exp
-        try:
-            self.db.record_message(user.id, chat.id, msg_type, ts)
-            logger.debug("记录了用户 %s 在 %s 中的消息", user.id, chat.id)
-        except Exception:
-            logger.exception(
-                "无法记录用户 %s 在 %s 中的消息", getattr(user, "id", None), chat.id
-            )
-
-        if to_add > 0:
-            try:
-                self.db.add_user_exp(user.id, to_add)
-                logger.info("添加了 %s 经验给用户 %s", to_add, user.id)
-
-                # 检查用户是否应该升级
-                await self.check_user_level_up(user, update, context)
-            except Exception:
-                logger.exception(
-                    "无法添加经验 %s 给用户 %s", to_add, getattr(user, "id", None)
-                )
+        await self._add_exp(user, chat, msg_type, ts, update, context)
 
         # optional playful reply (喵喵语) with low probability
         if random.random() < 0.02:
@@ -182,153 +141,9 @@ class CookieBot:
             await m.reply_text(phrase)
             logger.debug("已用俏皮短语回复用户 %s", getattr(user, "id", None))
 
-        # 检查成就解锁条件
-        try:
-            # 获取用户的当前统计数据
-            user_counts = self.db.get_user_counts(user.id, start_ts=None, end_ts=None)
-            total_messages = user_counts.get("total", 0)
-            image_count = user_counts.get("photo", 0)
-            sticker_count = user_counts.get("sticker", 0)
+        await self._unlock_achievement(user, chat, msg_type, ts, m)
 
-            # 获取所有成就
-            all_achievements = self.achievements.get("achievements")
-            # 获取用户已有的成就
-            user_achievements = self.db.get_user_achievements(user.id)
-            user_achievement_names = [a["name"] for a in user_achievements]
-
-            # 检查每个成就的解锁条件
-            for achievement in all_achievements:
-                name = achievement["name"]
-                emoji = achievement["emoji"]
-                description = achievement["description"]
-                condition = achievement.get("type", [])
-
-                # 跳过用户已有的成就
-                if name in user_achievement_names:
-                    continue
-
-                # 检查成就条件
-                unlocked = False
-                if len(condition) == 3:
-                    condition_type, operator, target = condition
-
-                    if condition_type == "send_message_count" and operator == ">=":
-                        if total_messages >= int(target):
-                            unlocked = True
-                    elif condition_type == "send_image_count" and operator == ">=":
-                        if image_count >= int(target):
-                            unlocked = True
-                    elif condition_type == "send_sticker_count" and operator == ">=":
-                        if sticker_count >= int(target):
-                            unlocked = True
-
-                # 如果解锁了新成就
-                if unlocked:
-                    # 为用户添加成就
-                    self.db.add_user_achievement(user.id, name, ts)
-                    logger.info("用户 %s 解锁了成就: %s", user.id, name)
-
-                    # 回复用户
-                    user_name = user.full_name or user.username or f"用户{user.id}"
-                    achievement_msg = f"🎉 <b>恭喜 <a href='tg://user?id={user.id}'>{user_name}</a> 解锁新成就！</b>\n\n{emoji} <b>{name}</b>\n{description}\n\n继续努力解锁更多成就吧！"
-                    await m.reply_html(achievement_msg)
-
-                    # 更新用户成就列表，避免重复检查
-                    user_achievement_names.append(name)
-        except Exception as e:
-            logger.exception("检查成就时发生错误: %s", e)
-
-        # 检查徽章获取条件
-        try:
-            # 获取用户的上一条消息记录
-            # 这里需要在database.py中添加一个方法来获取用户的上一条消息
-            # 暂时简化处理，通过检查用户今天是否已经获得过徽章来判断
-            # 实际应该检查上一条消息的时间戳
-
-            # 获取今日的开始时间
-            today_start = datetime.now().replace(
-                hour=0, minute=0, second=0, microsecond=0
-            )
-            today_ts = int(today_start.timestamp())
-
-            # 获取用户今天的徽章记录
-            # 这里需要在database.py中添加一个方法来获取用户今天的徽章
-            # 暂时简化处理，检查用户是否已经有任何徽章
-            # 实际应该检查今天是否已经获得过徽章
-            user_badge_names = self.db.get_user_badges(user.id)
-
-            # 检查用户今天是否已经发送过消息
-            today_counts = self.db.get_user_counts(
-                user.id, start_ts=today_ts, end_ts=None
-            )
-            today_messages = today_counts.get("total", 0)
-
-            # 如果用户今天已经发送过消息，说明不是第一条消息，跳过徽章检查
-            # 这样可以确保只有每天的第一条消息才会触发徽章检查
-            if today_messages > 1:
-                pass
-            else:
-                # 获取用户的今日统计数据
-                today_stickers = today_counts.get("sticker", 0)
-
-                # 获取所有徽章
-                all_badges = self.badges.get("badges", default=[])
-
-                # 检查每个徽章的获取条件
-                for badge in all_badges:
-                    name = badge["name"]
-                    emoji = badge["emoji"]
-                    description = badge["description"]
-                    condition = badge.get("type", [])
-
-                    # 跳过用户已有的徽章
-                    if name in user_badge_names:
-                        continue
-
-                    # 检查徽章条件
-                    earned = False
-                    if len(condition) == 3:
-                        condition_type, operator, target = condition
-
-                        if (
-                            condition_type == "send_message_top"
-                            and operator == "=="
-                            and target == "1"
-                        ):
-                            # 获取今日消息排行榜
-                            chat_id = chat.id if chat else None
-                            if chat_id:
-                                leaderboard = self.db.get_leaderboard(
-                                    chat_id, start_ts=today_ts, end_ts=None, limit=1
-                                )
-                                if leaderboard and leaderboard[0]["user_id"] == user.id:
-                                    earned = True
-                        elif (
-                            condition_type == "send_sticker_top"
-                            and operator == "=="
-                            and target == "1"
-                        ):
-                            # 获取今日贴纸排行榜
-                            # 这里简化处理，只检查用户是否是贴纸数量最多的
-                            # 实际应该查询数据库获取排行榜
-                            # 暂时跳过，需要在database.py中添加相应方法
-                            pass
-
-                    # 如果获得了新徽章
-                    if earned:
-                        # 为用户添加徽章
-                        self.db.add_user_badges(user.id, [name], ts)
-                        logger.info("用户 %s 获得了徽章: %s", user.id, name)
-
-                        # 回复用户
-                        user_name = user.full_name or user.username or f"用户{user.id}"
-                        badge_msg = f"🏅 <b>恭喜 <a href='tg://user?id={user.id}'>{user_name}</a> 获得新徽章！</b>\n\n{emoji} <b>{name}</b>\n{description}\n\n继续努力获得更多徽章吧！"
-                        await m.reply_html(badge_msg)
-
-                        # 更新用户徽章列表，避免重复检查
-                        user_badge_names.append(name)
-        except Exception as e:
-            logger.exception("检查徽章时发生错误: %s", e)
+        await self._unlock_badge(user, chat, m, ts)
 
     async def cmd_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """处理 /start 命令"""
@@ -935,3 +750,198 @@ ID: <code>{user.id}</code>
                 await update.effective_message.reply_html(level_up_msg)
         except Exception as e:
             logger.exception("检查用户升级时发生错误: %s", e)
+
+    async def _add_exp(self, user, chat, msg_type, ts, update, context):
+        # compute points and daily cap
+        points_map = self.cfg.get("experience", "points", default={}) or {}
+        point = int(points_map.get(msg_type, points_map.get("text", 1)))
+        daily_limit = int(self.cfg.get("experience", "daily_limit", default=150) or 150)
+
+        # today's range
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        start_ts = int(today_start.timestamp())
+        counts = self.db.get_user_counts(user.id, start_ts=start_ts, end_ts=None)
+        # compute current earned today
+        earned_today = 0
+        for t, cnt in counts.items():
+            if t == "total":
+                continue
+            p = int(points_map.get(t, points_map.get("text", 1)))
+            earned_today += p * cnt
+
+        to_add = 0
+        if earned_today < daily_limit:
+            allowed = daily_limit - earned_today
+            to_add = min(point, allowed)
+
+        # record message and add exp
+        try:
+            self.db.record_message(user.id, chat.id, msg_type, ts)
+            logger.debug("记录了用户 %s 在 %s 中的消息", user.id, chat.id)
+        except Exception:
+            logger.exception(
+                "无法记录用户 %s 在 %s 中的消息", getattr(user, "id", None), chat.id
+            )
+
+        if to_add > 0:
+            try:
+                self.db.add_user_exp(user.id, to_add)
+                logger.info("添加了 %s 经验给用户 %s", to_add, user.id)
+
+                # 检查用户是否应该升级
+                await self.check_user_level_up(user, update, context)
+            except Exception:
+                logger.exception(
+                    "无法添加经验 %s 给用户 %s", to_add, getattr(user, "id", None)
+                )
+
+    async def _unlock_achievement(self, user, chat, msg_type, ts, m):
+        try:
+            # 获取用户的当前统计数据
+            user_counts = self.db.get_user_counts(user.id, start_ts=None, end_ts=None)
+            total_messages = user_counts.get("total", 0)
+            image_count = user_counts.get("photo", 0)
+            sticker_count = user_counts.get("sticker", 0)
+
+            # 获取所有成就
+            all_achievements = self.achievements.get("achievements")
+            # 获取用户已有的成就
+            user_achievements = self.db.get_user_achievements(user.id)
+            user_achievement_names = [a["name"] for a in user_achievements]
+
+            # 检查每个成就的解锁条件
+            for achievement in all_achievements:
+                name = achievement["name"]
+                emoji = achievement["emoji"]
+                description = achievement["description"]
+                condition = achievement.get("type", [])
+
+                # 跳过用户已有的成就
+                if name in user_achievement_names:
+                    continue
+
+                # 检查成就条件
+                # 检查成就条件
+                unlocked = False
+                if len(condition) == 3:
+                    condition_type, operator, target = condition
+
+                    if condition_type == "send_message_count" and operator == ">=":
+                        if total_messages >= int(target):
+                            unlocked = True
+                    elif condition_type == "send_image_count" and operator == ">=":
+                        if image_count >= int(target):
+                            unlocked = True
+                    elif condition_type == "send_sticker_count" and operator == ">=":
+                        if sticker_count >= int(target):
+                            unlocked = True
+
+                # 如果解锁了新成就
+                if unlocked:
+                    # 为用户添加成就
+                    self.db.add_user_achievement(user.id, name, ts)
+                    logger.info("用户 %s 解锁了成就: %s", user.id, name)
+
+                    # 回复用户
+                    user_name = user.full_name or user.username or f"用户{user.id}"
+                    achievement_msg = f"🎉 <b>恭喜 <a href='tg://user?id={user.id}'>{user_name}</a> 解锁新成就！</b>\n\n{emoji} <b>{name}</b>\n{description}\n\n继续努力解锁更多成就吧！"
+                    await m.reply_html(achievement_msg)
+
+                    # 更新用户成就列表，避免重复检查
+                    user_achievement_names.append(name)
+        except Exception as e:
+            logger.exception("检查成就时发生错误: %s", e)
+
+    async def _unlock_badge(self, user, chat, m, ts):
+        try:
+            # 获取用户的上一条消息记录
+            # 这里需要在database.py中添加一个方法来获取用户的上一条消息
+            # 暂时简化处理，通过检查用户今天是否已经获得过徽章来判断
+            # 实际应该检查上一条消息的时间戳
+
+            # 获取今日的开始时间
+            today_start = datetime.now().replace(
+                hour=0, minute=0, second=0, microsecond=0
+            )
+            today_ts = int(today_start.timestamp())
+
+            # 获取用户今天的徽章记录
+            # 这里需要在database.py中添加一个方法来获取用户今天的徽章
+            # 暂时简化处理，检查用户是否已经有任何徽章
+            # 实际应该检查今天是否已经获得过徽章
+            user_badge_names = self.db.get_user_badges(user.id)
+
+            # 检查用户今天是否已经发送过消息
+            today_counts = self.db.get_user_counts(
+                user.id, start_ts=today_ts, end_ts=None
+            )
+            today_messages = today_counts.get("total", 0)
+
+            # 如果用户今天已经发送过消息，说明不是第一条消息，跳过徽章检查
+            # 这样可以确保只有每天的第一条消息才会触发徽章检查
+            if today_messages > 1:
+                pass
+            else:
+                # 获取用户的今日统计数据
+                today_stickers = today_counts.get("sticker", 0)
+
+                # 获取所有徽章
+                all_badges = self.badges.get("badges", default=[])
+
+                # 检查每个徽章的获取条件
+                for badge in all_badges:
+                    name = badge["name"]
+                    emoji = badge["emoji"]
+                    description = badge["description"]
+                    condition = badge.get("type", [])
+
+                    # 跳过用户已有的徽章
+                    if name in user_badge_names:
+                        continue
+
+                    # 检查徽章条件
+                    earned = False
+                    if len(condition) == 3:
+                        condition_type, operator, target = condition
+
+                        if (
+                            condition_type == "send_message_top"
+                            and operator == "=="
+                            and target == "1"
+                        ):
+                            # 获取今日消息排行榜
+                            chat_id = chat.id if chat else None
+                            if chat_id:
+                                leaderboard = self.db.get_leaderboard(
+                                    chat_id, start_ts=today_ts, end_ts=None, limit=1
+                                )
+                                if leaderboard and leaderboard[0]["user_id"] == user.id:
+                                    earned = True
+                        elif (
+                            condition_type == "send_sticker_top"
+                            and operator == "=="
+                            and target == "1"
+                        ):
+                            chat_id = chat.id if chat else None
+                            if chat_id:
+                                sticker_leaderboard = self.db.get_sticker_leaderboard(
+                                    chat_id, start_ts=today_ts, end_ts=None, limit=1
+                                )
+                                if (
+                                    sticker_leaderboard
+                                    and sticker_leaderboard[0]["user_id"] == user.id
+                                ):
+                                    earned = True
+
+                    if earned:
+                        # 为用户添加徽章
+                        self.db.add_user_badges(user.id, [name], ts)
+                        logger.info("用户 %s 获得了徽章: %s", user.id, name)
+
+                        user_name = user.full_name or user.username or f"用户{user.id}"
+                        badge_msg = f"🏅 <b>恭喜 <a href='tg://user?id={user.id}'>{user_name}</a> 获得新徽章！</b>\n\n{emoji} <b>{name}</b>\n{description}\n\n继续努力获得更多徽章吧！"
+                        await m.reply_html(badge_msg)
+
+                        user_badge_names.append(name)
+        except Exception as e:
+            logger.exception("检查徽章时发生错误: %s", e)

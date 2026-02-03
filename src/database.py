@@ -238,6 +238,27 @@ class Database:
         cur.execute(q, params)
         return cur.fetchall()
 
+    def get_sticker_leaderboard(
+        self,
+        chat_id: int,
+        start_ts: Optional[int] = None,
+        end_ts: Optional[int] = None,
+        limit: int = 10,
+    ):
+        q = "SELECT user_id, COUNT(*) as cnt FROM messages WHERE chat_id = ? AND msg_type = 'sticker'"
+        params = [chat_id]
+        if start_ts is not None:
+            q += " AND ts >= ?"
+            params.append(start_ts)
+        if end_ts is not None:
+            q += " AND ts < ?"
+            params.append(end_ts)
+        q += " GROUP BY user_id ORDER BY cnt DESC LIMIT ?"
+        params.append(limit)
+        cur = self.conn.cursor()
+        cur.execute(q, params)
+        return cur.fetchall()
+
     def get_total_messages(
         self, start_ts: Optional[int] = None, end_ts: Optional[int] = None
     ) -> int:

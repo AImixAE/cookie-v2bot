@@ -26,12 +26,44 @@ from PySide6.QtWidgets import (
     QFormLayout,
     QTextEdit,
     QDateEdit,
+    QStyleFactory,
 )
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QPalette, QColor, QFont
 from PySide6.QtCore import Qt, QDate
-from PySide6.QtGui import QFont, QColor
 from src.database import Database
 from src.core import midnight_range_for_yesterday
+
+
+def setup_dark_theme(app):
+    """设置深色主题"""
+    # 设置融合样式
+    app.setStyle(QStyleFactory.create("Fusion"))
+
+    # 创建深色调色板
+    palette = QPalette()
+
+    # 基础颜色 - 稍微调亮背景以提高可读性
+    palette.setColor(QPalette.Window, QColor(60, 60, 60))  # 稍微调亮背景
+    palette.setColor(
+        QPalette.WindowText, QColor(220, 220, 220)
+    )  # 稍微调暗文本，避免过于刺眼
+    palette.setColor(QPalette.Base, QColor(40, 40, 40))  # 稍微调亮基础背景
+    palette.setColor(QPalette.AlternateBase, QColor(60, 60, 60))  # 稍微调亮交替背景
+    palette.setColor(QPalette.ToolTipBase, QColor(220, 220, 220))
+    palette.setColor(QPalette.ToolTipText, QColor(30, 30, 30))  # 提示文本使用深色
+    palette.setColor(QPalette.Text, QColor(220, 220, 220))  # 稍微调暗文本
+
+    # 按钮颜色 - 调整按钮和按钮文本颜色
+    palette.setColor(QPalette.Button, QColor(70, 70, 70))  # 调亮按钮背景
+    palette.setColor(QPalette.ButtonText, QColor(220, 220, 220))  # 调暗按钮文本
+
+    # 其他颜色
+    palette.setColor(QPalette.BrightText, QColor(255, 0, 0))
+    palette.setColor(QPalette.Link, QColor(42, 130, 218))
+    palette.setColor(QPalette.Highlight, QColor(42, 130, 218))
+    palette.setColor(QPalette.HighlightedText, QColor(30, 30, 30))  # 高亮文本使用深色
+
+    app.setPalette(palette)
 
 
 class CookieBotGUI(QMainWindow):
@@ -187,12 +219,24 @@ class CookieBotGUI(QMainWindow):
             ["用户ID", "用户名", "经验总和", "等级", "操作"]
         )
         # 设置列宽
-        for i in range(3):
-            self.users_table.horizontalHeader().setSectionResizeMode(
-                i, QHeaderView.Stretch
-            )
+        # 为用户ID设置固定宽度
+        self.users_table.horizontalHeader().setSectionResizeMode(0, QHeaderView.Fixed)
+        self.users_table.setColumnWidth(0, 120)  # 设置用户ID列宽度为120像素
+
+        # 让用户名自动拉伸
+        self.users_table.horizontalHeader().setSectionResizeMode(1, QHeaderView.Stretch)
+
+        # 为经验总和设置固定宽度
+        self.users_table.horizontalHeader().setSectionResizeMode(2, QHeaderView.Fixed)
+        self.users_table.setColumnWidth(2, 100)  # 设置经验总和列宽度为100像素
+
+        # 为等级设置固定宽度
         self.users_table.horizontalHeader().setSectionResizeMode(3, QHeaderView.Fixed)
-        self.users_table.setColumnWidth(3, 150)
+        self.users_table.setColumnWidth(3, 80)  # 调整等级列宽度为80像素
+
+        # 为操作设置固定宽度
+        self.users_table.horizontalHeader().setSectionResizeMode(4, QHeaderView.Fixed)
+        self.users_table.setColumnWidth(4, 160)  # 设置操作列宽度为160像素
         layout.addWidget(self.users_table)
 
         # 创建计数标签
@@ -1319,6 +1363,10 @@ class CookieBotGUI(QMainWindow):
 def main():
     """主函数"""
     app = QApplication(sys.argv)
+
+    # 设置深色主题
+    # setup_dark_theme(app)
+
     window = CookieBotGUI()
     window.show()
     sys.exit(app.exec())
