@@ -419,8 +419,12 @@ ID: <code>{user.id}</code>
             username = r["username"]
             name_parts = [p for p in [first, last] if p]
             name = " ".join(name_parts) if name_parts else f"ID:{r['user_id']}"
-            if username:
-                return f"{name} (@{username})"
+            if r["username"]:
+                # tg://user?id={r["user_id"]}
+                if username == getattr(user, "username", None):
+                    return f'<a href="t.me/{username}"><b>{name}</b></a>'
+                else:
+                    return f'<a href="t.me/{username}">{name}</a>'
             return name
 
         if not rows:
@@ -443,7 +447,10 @@ ID: <code>{user.id}</code>
                 lines
             )
 
-        await update.effective_message.reply_html(msg)
+        await update.effective_message.reply_html(
+            msg,
+            disable_web_page_preview=True,
+        )
 
     async def daily_job(self, context: ContextTypes.DEFAULT_TYPE):
         # run at 00:00, report yesterday
