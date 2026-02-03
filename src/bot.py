@@ -742,7 +742,7 @@ ID: <code>{user.id}</code>
     def _calculate_level_from_exp(self, exp):
         """
         根据经验值计算用户等级
-        使用 delta 格式的等级配置
+        使用 delta 格式的等级配置（整数列表）
         """
         level_configs = self.levels.get("levels", default=[])
         if not level_configs:
@@ -750,8 +750,7 @@ ID: <code>{user.id}</code>
 
         # 计算每个等级需要的总经验值
         total_exp_needed = 0
-        for i, level_config in enumerate(level_configs):
-            delta = level_config.get("delta", 0)
+        for i, delta in enumerate(level_configs):
             total_exp_needed += delta
             if exp < total_exp_needed:
                 return i + 1
@@ -762,7 +761,7 @@ ID: <code>{user.id}</code>
     def _get_next_level_exp_needed(self, current_level):
         """
         获取下一等级需要的总经验值
-        使用 delta 格式的等级配置
+        使用 delta 格式的等级配置（整数列表）
         """
         level_configs = self.levels.get("levels", default=[])
 
@@ -770,11 +769,12 @@ ID: <code>{user.id}</code>
             # 已经是最高等级
             return 0
 
-        # 计算到下一等级需要的总经验值
+        # 计算到下一等级（current_level + 1）需要的总经验值
+        # 对于等级N，需要前N个delta的总和
         total_exp_needed = 0
         for i in range(current_level):
             if i < len(level_configs):
-                total_exp_needed += level_configs[i].get("delta", 0)
+                total_exp_needed += level_configs[i]
 
         return total_exp_needed
 

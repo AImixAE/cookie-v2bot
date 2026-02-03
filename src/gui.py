@@ -98,6 +98,7 @@ class CookieBotGUI(QMainWindow):
         self.create_user_operation_tab()
         self.create_batch_operation_tab()
         self.create_database_detail_tab()
+        self.create_log_operation_tab()
 
     def create_groups_tab(self):
         """创建群组标签页"""
@@ -1229,6 +1230,50 @@ class CookieBotGUI(QMainWindow):
 
         self.tab_widget.addTab(tab, "数据库详细")
 
+    def create_log_operation_tab(self):
+        """创建日志操作标签页"""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+
+        # 创建标题
+        title_label = QLabel("日志操作")
+        title_label.setFont(QFont("Arial", 14, QFont.Bold))
+        title_label.setContentsMargins(0, 0, 0, 10)
+        layout.addWidget(title_label)
+
+        # 创建操作按钮组
+        button_layout = QHBoxLayout()
+
+        # 刷新日志按钮
+        self.refresh_log_button = QPushButton("刷新日志")
+        self.refresh_log_button.clicked.connect(self.refresh_log_content)
+        button_layout.addWidget(self.refresh_log_button)
+
+        # 清理日志按钮
+        self.clear_log_button = QPushButton("清理日志")
+        self.clear_log_button.clicked.connect(self.clear_logs)
+        self.clear_log_button.setStyleSheet("background-color: #ff6b6b; color: white;")
+        button_layout.addWidget(self.clear_log_button)
+
+        layout.addLayout(button_layout)
+
+        # 创建日志预览区域
+        log_preview_group = QGroupBox("日志预览")
+        log_preview_layout = QVBoxLayout(log_preview_group)
+
+        # 创建日志文本框
+        self.log_textedit = QTextEdit()
+        self.log_textedit.setReadOnly(True)
+        self.log_textedit.setFont(QFont("Consolas", 10))
+        log_preview_layout.addWidget(self.log_textedit)
+
+        layout.addWidget(log_preview_group)
+
+        # 填充日志内容
+        self.refresh_log_content()
+
+        self.tab_widget.addTab(tab, "日志操作")
+
     def refresh_database_stats(self):
         """刷新数据库统计信息"""
         # 获取统计信息
@@ -1358,6 +1403,137 @@ class CookieBotGUI(QMainWindow):
                 QMessageBox.information(self, "成功", "数据库已成功清空并重新初始化")
             except Exception as e:
                 QMessageBox.critical(self, "错误", f"清空数据库失败: {e}")
+
+    def refresh_log_content(self):
+        """刷新日志内容"""
+        try:
+            # 检查常见的日志文件位置
+            log_files = ["logs/bot.log", "bot.log", "logs.log"]
+
+            log_content = ""
+            found = False
+
+            for log_file in log_files:
+                import os
+
+                if os.path.exists(log_file) and os.path.isfile(log_file):
+                    try:
+                        with open(
+                            log_file, "r", encoding="utf-8", errors="replace"
+                        ) as f:
+                            content = f.read()
+                            if content:
+                                log_content += f"=== {log_file} ===\n"
+                                log_content += content
+                                log_content += "\n" * 2
+                                found = True
+                    except Exception as e:
+                        log_content += f"读取日志文件 {log_file} 失败: {str(e)}\n\n"
+
+            if not found:
+                log_content = (
+                    "未找到日志文件。请确保日志文件存在于以下位置之一：\n"
+                    + "\n".join(log_files)
+                )
+
+            # 显示日志内容
+            self.log_textedit.setText(log_content)
+
+            # 应用高亮（简单版本）
+            self.apply_log_highlighting()
+
+        except Exception as e:
+            self.log_textedit.setText(f"刷新日志失败: {str(e)}")
+
+    def clear_logs(self):
+        """清理日志文件"""
+        # 询问用户确认
+        reply = QMessageBox.question(
+            self,
+            "确认清理",
+            "此操作将清空所有日志文件的内容！\n请谨慎操作！\n\n确认要清理日志文件吗？",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No,
+        )
+
+        if reply != QMessageBox.Yes:
+            return
+
+        # 清理日志文件
+        try:
+            # 检查常见的日志文件位置
+            log_files = ["logs/bot.log", "bot.log", "logs.log"]
+
+            cleaned = []
+            errors = []
+
+            for log_file in log_files:
+                import os
+
+                if os.path.exists(log_file) and os.path.isfile(log_file):
+                    try:
+                        with open(log_file, "w", encoding="utf-8") as f:
+                            f.write("")
+                        cleaned.append(log_file)
+                    except Exception as e:
+                        errors.append(f"{log_file}: {str(e)}")
+
+            # 显示结果
+            if cleaned:
+                message = "日志文件已成功清理:\n" + "\n".join(cleaned)
+                if errors:
+                    message += "\n\n清理失败的文件:\n" + "\n".join(errors)
+                QMessageBox.information(self, "成功", message)
+            else:
+                if errors:
+                    message = "清理失败:\n" + "\n".join(errors)
+                    QMessageBox.critical(self, "错误", message)
+                else:
+                    QMessageBox.information(self, "提示", "未找到需要清理的日志文件")
+
+            # 刷新日志内容
+            self.refresh_log_content()
+
+        except Exception as e:
+            QMessageBox.critical(self, "错误", f"清理日志失败: {str(e)}")
+
+    def apply_log_highlighting(self):
+        """应用日志高亮显示"""
+        try:
+            # 获取当前文本
+            content = self.log_textedit.toPlainText()
+
+            # 创建HTML内容并添加高亮
+            html_content = content
+
+            # 简单的高亮规则
+            # ERROR 高亮为红色
+            html_content = html_content.replace(
+                "ERROR", "<span style='color: #ff6b6b; font-weight: bold;'>ERROR</span>"
+            )
+            # WARNING 高亮为黄色
+            html_content = html_content.replace(
+                "WARNING",
+                "<span style='color: #ffd93d; font-weight: bold;'>WARNING</span>",
+            )
+            # INFO 高亮为绿色
+            html_content = html_content.replace(
+                "INFO", "<span style='color: #6bcb77; font-weight: bold;'>INFO</span>"
+            )
+            # DEBUG 高亮为蓝色
+            html_content = html_content.replace(
+                "DEBUG", "<span style='color: #4d96ff; font-weight: bold;'>DEBUG</span>"
+            )
+
+            # 替换换行符为HTML换行
+            html_content = html_content.replace("\n", "<br>")
+
+            # 设置为HTML内容
+            self.log_textedit.setHtml(html_content)
+
+        except Exception:
+            # 如果高亮失败，不影响基本功能
+            pass
 
 
 def main():
