@@ -1,0 +1,11 @@
+[[badges]]
+name = "活着呢"
+emoji = "😸"
+description = "今日消息数量排名第一"
+type = ["send_message_top", "==", "1"]
+
+[[badges]]
+name = "乐着呢"
+emoji = "😸"
+description = "今日贴纸数量排名第一"
+type = ["send_sticker_top", "==", "1"]

@@ -1,0 +1,23 @@
+[[cards]]
+name = "哭诉 1"
+emoji = "📒"
+description = "使某人禁言 1h"
+point = 100
+
+[[cards]]
+name = "哭诉 2"
+emoji = "📒"
+description = "使某人禁言 3h"
+point = 200
+
+[[cards]]
+name = "置顶"
+emoji = "🔝"
+description = "可置顶一条消息"
+point = 150
+
+[[cards]]
+name = "奖励"
+emoji = "🖼️"
+description = "令某人发送自己的一张照片（需同意，不同意将返还）"
+point = 200

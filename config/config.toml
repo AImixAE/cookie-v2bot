@@ -1,0 +1,21 @@
+[activity]
+name = "喵喵成长日记"
+description = "在这里，你的每一条喵喵叫都会变成成长经验，点亮你的猫猫成就树喵！"
+
+[activity.time]
+start_date = "2024-02-02"
+end_date = "2024-02-08"
+
+[experience]
+daily_limit = 150 # 每日经验上限
+
+# 消息类型经验值
+[experience.points]
+# 文本消息
+text = 1
+# 图片
+photo = 3
+# 贴纸
+sticker = 2
+# 语音
+voice = 3

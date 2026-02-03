@@ -1,0 +1,29 @@
+[[achievements]]
+name = "小小猫"
+emoji = "😸"
+description = "发送消息总数达到 100 条"
+type = ["send_message_count", ">=", "100"]
+
+[[achievements]]
+name = "悬浮猫"
+emoji = "😺"
+description = "发送消息总数达到 300 条"
+type = ["send_message_count", ">=", "300"]
+
+[[achievements]]
+name = "猫王？"
+emoji = "😼"
+description = "发送消息总数达到 500 条"
+type = ["send_message_count", ">=", "500"]
+
+[[achievements]]
+name = "图吧猫"
+emoji = "🖼️"
+description = "发送图片达到 50 张"
+type = ["send_image_count", ">=", "50"]
+
+[[achievements]]
+name = "表情猫"
+emoji = "🎨"
+description = "发送贴纸达到 50 张"
+type = ["send_sticker_count", ">=", "50"]

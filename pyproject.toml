@@ -1,0 +1,13 @@
+[project]
+name = "cookie-v2bot"
+version = "0.1.0"
+description = "喵喵成长日记 - 群组活跃助手"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "click>=8.3.1",
+    "pyside6>=6.10.2",
+    "python-dotenv>=1.2.1",
+    "python-telegram-bot[job-queue]>=22.6",
+    "rich>=14.3.2",
+]
