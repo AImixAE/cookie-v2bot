@@ -46,7 +46,8 @@ class CookieBot:
         self.achievements = Config("config/achievements.toml")
         self.badges = Config("config/badges.toml")
         self.cards = Config("config/cards.toml")
-        self.db = Database(db_path or "data/bot.db")
+        self.levels = Config("config/level.toml")
+        self.db = Database(db_path or "data/chat.db")
         self.app = ApplicationBuilder().token(token).build()
         self.app.add_handler(
             MessageHandler(filters.ALL & ~filters.COMMAND, self.on_message)
@@ -165,6 +166,9 @@ class CookieBot:
             try:
                 self.db.add_user_exp(user.id, to_add)
                 logger.info("添加了 %s 经验给用户 %s", to_add, user.id)
+
+                # 检查用户是否应该升级
+                await self.check_user_level_up(user, update, context)
             except Exception:
                 logger.exception(
                     "无法添加经验 %s 给用户 %s", to_add, getattr(user, "id", None)
@@ -236,77 +240,93 @@ class CookieBot:
 
         # 检查徽章获取条件
         try:
+            # 获取用户的上一条消息记录
+            # 这里需要在database.py中添加一个方法来获取用户的上一条消息
+            # 暂时简化处理，通过检查用户今天是否已经获得过徽章来判断
+            # 实际应该检查上一条消息的时间戳
+
             # 获取今日的开始时间
             today_start = datetime.now().replace(
                 hour=0, minute=0, second=0, microsecond=0
             )
             today_ts = int(today_start.timestamp())
 
-            # 获取用户的今日统计数据
+            # 获取用户今天的徽章记录
+            # 这里需要在database.py中添加一个方法来获取用户今天的徽章
+            # 暂时简化处理，检查用户是否已经有任何徽章
+            # 实际应该检查今天是否已经获得过徽章
+            user_badge_names = self.db.get_user_badges(user.id)
+
+            # 检查用户今天是否已经发送过消息
             today_counts = self.db.get_user_counts(
                 user.id, start_ts=today_ts, end_ts=None
             )
             today_messages = today_counts.get("total", 0)
-            today_stickers = today_counts.get("sticker", 0)
 
-            # 获取所有徽章
-            all_badges = self.badges.get("badges", default=[])
-            # 获取用户已有的徽章
-            user_badge_names = self.db.get_user_badges(user.id)
+            # 如果用户今天已经发送过消息，说明不是第一条消息，跳过徽章检查
+            # 这样可以确保只有每天的第一条消息才会触发徽章检查
+            if today_messages > 1:
+                pass
+            else:
+                # 获取用户的今日统计数据
+                today_stickers = today_counts.get("sticker", 0)
 
-            # 检查每个徽章的获取条件
-            for badge in all_badges:
-                name = badge["name"]
-                emoji = badge["emoji"]
-                description = badge["description"]
-                condition = badge.get("type", [])
+                # 获取所有徽章
+                all_badges = self.badges.get("badges", default=[])
 
-                # 跳过用户已有的徽章
-                if name in user_badge_names:
-                    continue
+                # 检查每个徽章的获取条件
+                for badge in all_badges:
+                    name = badge["name"]
+                    emoji = badge["emoji"]
+                    description = badge["description"]
+                    condition = badge.get("type", [])
 
-                # 检查徽章条件
-                earned = False
-                if len(condition) == 3:
-                    condition_type, operator, target = condition
+                    # 跳过用户已有的徽章
+                    if name in user_badge_names:
+                        continue
 
-                    if (
-                        condition_type == "send_message_top"
-                        and operator == "=="
-                        and target == "1"
-                    ):
-                        # 获取今日消息排行榜
-                        chat_id = chat.id if chat else None
-                        if chat_id:
-                            leaderboard = self.db.get_leaderboard(
-                                chat_id, start_ts=today_ts, end_ts=None, limit=1
-                            )
-                            if leaderboard and leaderboard[0]["user_id"] == user.id:
-                                earned = True
-                    elif (
-                        condition_type == "send_sticker_top"
-                        and operator == "=="
-                        and target == "1"
-                    ):
-                        # 获取今日贴纸排行榜
-                        # 这里简化处理，只检查用户是否是贴纸数量最多的
-                        # 实际应该查询数据库获取排行榜
-                        # 暂时跳过，需要在database.py中添加相应方法
-                        pass
+                    # 检查徽章条件
+                    earned = False
+                    if len(condition) == 3:
+                        condition_type, operator, target = condition
 
-                # 如果获得了新徽章
-                if earned:
-                    # 为用户添加徽章
-                    self.db.add_user_badges(user.id, [name], ts)
-                    logger.info("用户 %s 获得了徽章: %s", user.id, name)
+                        if (
+                            condition_type == "send_message_top"
+                            and operator == "=="
+                            and target == "1"
+                        ):
+                            # 获取今日消息排行榜
+                            chat_id = chat.id if chat else None
+                            if chat_id:
+                                leaderboard = self.db.get_leaderboard(
+                                    chat_id, start_ts=today_ts, end_ts=None, limit=1
+                                )
+                                if leaderboard and leaderboard[0]["user_id"] == user.id:
+                                    earned = True
+                        elif (
+                            condition_type == "send_sticker_top"
+                            and operator == "=="
+                            and target == "1"
+                        ):
+                            # 获取今日贴纸排行榜
+                            # 这里简化处理，只检查用户是否是贴纸数量最多的
+                            # 实际应该查询数据库获取排行榜
+                            # 暂时跳过，需要在database.py中添加相应方法
+                            pass
 
-                    # 回复用户
-                    user_name = user.full_name or user.username or f"用户{user.id}"
-                    badge_msg = f"🏅 <b>恭喜 <a href='tg://user?id={user.id}'>{user_name}</a> 获得新徽章！</b>\n\n{emoji} <b>{name}</b>\n{description}\n\n继续努力获得更多徽章吧！"
-                    await m.reply_html(badge_msg)
+                    # 如果获得了新徽章
+                    if earned:
+                        # 为用户添加徽章
+                        self.db.add_user_badges(user.id, [name], ts)
+                        logger.info("用户 %s 获得了徽章: %s", user.id, name)
 
-                    # 更新用户徽章列表，避免重复检查
-                    user_badge_names.append(name)
+                        # 回复用户
+                        user_name = user.full_name or user.username or f"用户{user.id}"
+                        badge_msg = f"🏅 <b>恭喜 <a href='tg://user?id={user.id}'>{user_name}</a> 获得新徽章！</b>\n\n{emoji} <b>{name}</b>\n{description}\n\n继续努力获得更多徽章吧！"
+                        await m.reply_html(badge_msg)
+
+                        # 更新用户徽章列表，避免重复检查
+                        user_badge_names.append(name)
         except Exception as e:
             logger.exception("检查徽章时发生错误: %s", e)
 
@@ -402,14 +422,58 @@ class CookieBot:
         ).fetchone()
         exp_total = total_user[0] if total_user else 0
 
+        # 获取用户等级
+        user_level = self.db.get_user_level(user.id)
+
+        # 计算下一等级需要的经验值
+        level_configs = self.levels.get("levels", []) or []
+        next_level_need = 0
+        if user_level > 1:
+            # 查找当前等级对应的配置
+            if user_level - 2 < len(level_configs):
+                # 如果有下一等级，获取下一等级的 need 值
+                if user_level - 1 < len(level_configs):
+                    next_level_need = level_configs[user_level - 1].get("need", 0)
+                else:
+                    # 已经是最高等级
+                    next_level_need = exp_total
+            else:
+                # 等级配置不足，使用当前经验值
+                next_level_need = exp_total
+        else:
+            # 第一级，获取第一级的 need 值
+            if level_configs:
+                next_level_need = level_configs[0].get("need", 0)
+            else:
+                next_level_need = 100
+
+        # 计算今天获取的经验值
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        today_ts = int(today_start.timestamp())
+
+        # 获取今天的消息统计
+        today_counts = self.db.get_user_counts(user.id, start_ts=today_ts, end_ts=None)
+
+        # 计算今天获得的经验值
+        points_map = self.cfg.get("experience", "points", default={}) or {}
+        today_exp = 0
+        for t, cnt in today_counts.items():
+            if t == "total":
+                continue
+            p = int(points_map.get(t, points_map.get("text", 1)))
+            today_exp += p * cnt
+
         # 构建美观的消息
-        txt = f"""🎯 <b>喵喵个人信息</b>
+        txt = f"""
+🎯 <b>喵喵个人信息</b>
 
 👤 <b>用户信息</b>
 名字: {user.full_name}
 ID: <code>{user.id}</code>
 
-⭐ <b>总经验值: {exp_total}</b>
+⭐ <b>总经验值: {exp_total}/{next_level_need}</b>
+🔥 <b>今日经验: {today_exp}</b>
+🏆 <b>等级: {user_level}</b>
 
 📊 <b>昨日统计</b>
 """
@@ -443,6 +507,7 @@ ID: <code>{user.id}</code>
                 txt += f"{emoji} {k}: <code>{v}</code>\n"
 
         txt += """
+
 <b>更多内容:</b>
 成就: /myachievements
 徽章: /mybadges
@@ -624,7 +689,10 @@ ID: <code>{user.id}</code>
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
         user = update.effective_user
-        logger.info("用户 %s 执行了命令 /myachievements", getattr(user, "id", None))
+        logger.info(
+            "用户 %s 执行了命令 /myachievements",
+            getattr(user, "id", None),
+        )
 
         # 获取用户成就
         user_achievements: list = self.db.get_user_achievements(user.id)
@@ -635,7 +703,8 @@ ID: <code>{user.id}</code>
         for achievement in user_achievements:
             # 查找对应的完整成就信息
             achievement_info = next(
-                (a for a in all_achievements if a["name"] == achievement["name"]), None
+                (a for a in all_achievements if a["name"] == achievement["name"]),
+                None,
             )
             if achievement_info:
                 # 格式化时间
@@ -646,7 +715,8 @@ ID: <code>{user.id}</code>
                     else "未知时间"
                 )
                 lines.append(
-                    f"{achievement_info['emoji']} <b>{achievement_info['name']}</b> — 解锁时间: {time_str}"
+                    f"{achievement_info['emoji']} <b>{achievement_info['name']}</b> — "
+                    f"解锁时间: {time_str}"
                 )
             else:
                 # 格式化时间
@@ -730,8 +800,14 @@ ID: <code>{user.id}</code>
         # 格式化卡片介绍
         lines = []
         for c in cards:
-            lines.append(f"{c['emoji']} <b>{c['name']}</b> — {c['description']}")
+            point = c.get("point", 0)
+            lines.append(
+                f"{c['emoji']} <b><code>{c['name']}</code></b> — "
+                f"{c['description']} (需要 {point} 经验值)"
+            )
         msg = f"📰 <b>喵喵卡片介绍</b>\n\n" + "\n".join(lines)
+        msg += "\n\nℹ <b>提示:</b> 如果要使用卡片，请找管理员喵!"
+
         # 发送卡片介绍
         await update.effective_message.reply_html(msg)
 
@@ -826,3 +902,36 @@ ID: <code>{user.id}</code>
         user_name = user.full_name or user.username or f"用户{user.id}"
         card_msg = f"🎁 <b>恭喜 <a href='tg://user?id={user.id}'>{user_name}</a> 购买成功！</b>\n\n{card_info['emoji']} <b>{card_info['name']}</b>\n{card_info['description']}\n\n消耗了 {card_point} 经验值，剩余 {user_exp - card_point} 经验值\n\n现在你可以使用这张卡片了！"
         await update.effective_message.reply_html(card_msg)
+
+    async def check_user_level_up(self, user, update, context):
+        """
+        检查用户是否应该升级
+        """
+        try:
+            # 获取用户当前的经验值和等级
+            user_exp = self.db.get_user_exp(user.id)
+            current_level = self.db.get_user_level(user.id)
+
+            # 从配置中获取等级列表
+            levels: list = self.levels.get("levels", default=[])
+
+            # 计算用户应该达到的等级
+            target_level = 1
+            for i, level_config in enumerate(levels):
+                if user_exp >= level_config.get("need", 0):
+                    target_level = i + 2
+                else:
+                    break
+
+            # 如果用户的等级低于应该达到的等级，就升级
+            if target_level > current_level:
+                # 更新用户等级
+                self.db.set_user_level(user.id, target_level)
+                logger.info("用户 %s 升级到了等级 %d", user.id, target_level)
+
+                # 回复用户
+                user_name = user.full_name or user.username or f"用户{user.id}"
+                level_up_msg = f"🎉 <b>恭喜 <a href='tg://user?id={user.id}'>{user_name}</a> 升级了！</b>\n\n你现在是 <b>等级 {target_level}</b> 了！\n\n继续努力，解锁更多等级和成就吧！"
+                await update.effective_message.reply_html(level_up_msg)
+        except Exception as e:
+            logger.exception("检查用户升级时发生错误: %s", e)

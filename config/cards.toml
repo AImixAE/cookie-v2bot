@@ -1,13 +1,13 @@
 [[cards]]
 name = "哭诉 1"
 emoji = "📒"
-description = "使某人禁言 1h"
+description = "使某人禁言 20min"
 point = 100
 
 [[cards]]
 name = "哭诉 2"
 emoji = "📒"
-description = "使某人禁言 3h"
+description = "使某人禁言 30min"
 point = 200
 
 [[cards]]

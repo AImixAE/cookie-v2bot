@@ -62,7 +62,7 @@ wheels = [
 ]
 
 [[package]]
-name = "cookie-chat-group-bot-v2"
+name = "cookie-v2bot"
 version = "0.1.0"
 source = { virtual = "." }
 dependencies = [

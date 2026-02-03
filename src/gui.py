@@ -39,7 +39,7 @@ class CookieBotGUI(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.db = Database("data/bot.db")
+        self.db = Database("data/chat.db")
         self.init_ui()
 
     def init_ui(self):
@@ -182,9 +182,9 @@ class CookieBotGUI(QMainWindow):
 
         # 创建表格
         self.users_table = QTableWidget()
-        self.users_table.setColumnCount(4)
+        self.users_table.setColumnCount(5)
         self.users_table.setHorizontalHeaderLabels(
-            ["用户ID", "用户名", "经验总和", "操作"]
+            ["用户ID", "用户名", "经验总和", "等级", "操作"]
         )
         # 设置列宽
         for i in range(3):
@@ -220,6 +220,7 @@ class CookieBotGUI(QMainWindow):
             first_name = user[2]
             last_name = user[3]
             total_exp = user[4]
+            level = user[5] if len(user) > 5 else 1
 
             # 格式化用户名
             name_parts = [p for p in [first_name, last_name] if p]
@@ -241,6 +242,7 @@ class CookieBotGUI(QMainWindow):
             self.users_table.setItem(row_position, 0, QTableWidgetItem(str(user_id)))
             self.users_table.setItem(row_position, 1, QTableWidgetItem(display_name))
             self.users_table.setItem(row_position, 2, QTableWidgetItem(str(total_exp)))
+            self.users_table.setItem(row_position, 3, QTableWidgetItem(str(level)))
 
             # 添加操作按钮
             button_widget = QWidget()
@@ -263,7 +265,7 @@ class CookieBotGUI(QMainWindow):
             )
             button_layout.addWidget(user_operation_button)
 
-            self.users_table.setCellWidget(row_position, 3, button_widget)
+            self.users_table.setCellWidget(row_position, 4, button_widget)
 
         # 更新计数标签
         self.users_count_label.setText(f"共 {len(users)} 个用户")
@@ -305,6 +307,7 @@ class CookieBotGUI(QMainWindow):
             first_name = user[2]
             last_name = user[3]
             total_exp = user[4]
+            level = user[5] if len(user) > 5 else 1
 
             # 格式化用户名
             name_parts = [p for p in [first_name, last_name] if p]
@@ -326,6 +329,7 @@ class CookieBotGUI(QMainWindow):
             self.users_table.setItem(row_position, 0, QTableWidgetItem(str(user_id)))
             self.users_table.setItem(row_position, 1, QTableWidgetItem(display_name))
             self.users_table.setItem(row_position, 2, QTableWidgetItem(str(total_exp)))
+            self.users_table.setItem(row_position, 3, QTableWidgetItem(str(level)))
 
         # 更新计数标签
         self.users_count_label.setText(f"共 {len(filtered_users)} 个用户")
@@ -457,6 +461,9 @@ class CookieBotGUI(QMainWindow):
         self.user_info_layout.addWidget(QLabel(str(user[0])), 1, 1)
         self.user_info_layout.addWidget(QLabel("经验总和:"), 2, 0)
         self.user_info_layout.addWidget(QLabel(str(user[4])), 2, 1)
+        level = user[5] if len(user) > 5 else 1
+        self.user_info_layout.addWidget(QLabel("等级:"), 3, 0)
+        self.user_info_layout.addWidget(QLabel(str(level)), 3, 1)
 
         # 计算时间范围
         today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -904,6 +911,9 @@ class CookieBotGUI(QMainWindow):
         self.operation_user_info_layout.addWidget(QLabel(str(user[0])), 1, 1)
         self.operation_user_info_layout.addWidget(QLabel("当前经验值:"), 2, 0)
         self.operation_user_info_layout.addWidget(QLabel(str(user[4])), 2, 1)
+        level = user[5] if len(user) > 5 else 1
+        self.operation_user_info_layout.addWidget(QLabel("当前等级:"), 3, 0)
+        self.operation_user_info_layout.addWidget(QLabel(str(level)), 3, 1)
 
     def add_exp(self):
         """增加经验值"""

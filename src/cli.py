@@ -7,7 +7,7 @@ from src.database import Database
 from src.core import midnight_range_for_yesterday
 
 console = Console()
-db = Database("data/bot.db")
+db = Database("data/chat.db")
 
 
 def format_username(user):
@@ -83,6 +83,7 @@ def list_users():
     table.add_column("用户ID", style="dim")
     table.add_column("用户名")
     table.add_column("经验总和")
+    table.add_column("等级")
 
     for user in users:
         user_id = user[0]
@@ -90,6 +91,7 @@ def list_users():
         first_name = user[2]
         last_name = user[3]
         total_exp = user[4]
+        level = user[5] if len(user) > 5 else 1
 
         # 格式化用户名
         formatted_name = format_username(
@@ -101,7 +103,7 @@ def list_users():
             }
         )
 
-        table.add_row(str(user_id), formatted_name, str(total_exp))
+        table.add_row(str(user_id), formatted_name, str(total_exp), str(level))
 
     console.print(table)
 
@@ -132,6 +134,8 @@ def user_detail(user_id):
     console.print(f"[bold green]用户:[/bold green] {formatted_name}")
     console.print(f"[bold green]用户ID:[/bold green] {user[0]}")
     console.print(f"[bold green]经验总和:[/bold green] {user[4]}")
+    level = user[5] if len(user) > 5 else 1
+    console.print(f"[bold green]等级:[/bold green] {level}")
 
     # 计算时间范围
     today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -307,6 +311,8 @@ def user_operation(user_id, add, remove, set, delete):
     )
     console.print(f"[bold green]当前用户:[/bold green] {formatted_name}")
     console.print(f"[bold green]当前经验值:[/bold green] {user[4]}")
+    level = user[5] if len(user) > 5 else 1
+    console.print(f"[bold green]当前等级:[/bold green] {level}")
 
     # 执行操作
     if delete:

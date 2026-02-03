@@ -21,7 +21,8 @@ class Database:
                 username TEXT,
                 first_name TEXT,
                 last_name TEXT,
-                total_exp INTEGER DEFAULT 0
+                total_exp INTEGER DEFAULT 0,
+                level INTEGER DEFAULT 1
             )
             """
         )
@@ -104,8 +105,8 @@ class Database:
         cur = self.conn.cursor()
         cur.execute(
             """
-            INSERT INTO users(user_id, username, first_name, last_name)
-            VALUES(?,?,?,?)
+            INSERT INTO users(user_id, username, first_name, last_name, level)
+            VALUES(?,?,?,?,1)
             ON CONFLICT(user_id) DO UPDATE SET username=excluded.username,
             first_name=excluded.first_name, last_name=excluded.last_name
             """,
@@ -139,7 +140,25 @@ class Database:
             "SELECT total_exp FROM users WHERE user_id = ?",
             (user_id,),
         )
-        return cur.fetchone()["total_exp"]
+        result = cur.fetchone()
+        return result["total_exp"] if result else 0
+
+    def get_user_level(self, user_id: int) -> int:
+        cur = self.conn.cursor()
+        cur.execute(
+            "SELECT level FROM users WHERE user_id = ?",
+            (user_id,),
+        )
+        result = cur.fetchone()
+        return result["level"] if result else 1
+
+    def set_user_level(self, user_id: int, level: int):
+        cur = self.conn.cursor()
+        cur.execute(
+            "UPDATE users SET level = ? WHERE user_id = ?",
+            (level, user_id),
+        )
+        self.conn.commit()
 
     def delete_user(self, user_id: int):
         cur = self.conn.cursor()
