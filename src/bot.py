@@ -363,8 +363,12 @@ ID: <code>{user.id}</code>
             username = r["username"]
             name_parts = [p for p in [first, last] if p]
             name = " ".join(name_parts) if name_parts else f"ID:{r['user_id']}"
-            if r["user_id"]:
-                return f'<a href="tg://user?id={r["user_id"]}">{name}</a>'
+            if r["username"]:
+                # tg://user?id={r["user_id"]}
+                if username == getattr(user, "username", None):
+                    return f'<a href="t.me/{username}"><b>{name}</b></a>'
+                else:
+                    return f'<a href="t.me/{username}">{name}</a>'
             return name
 
         if not rows:
@@ -381,7 +385,10 @@ ID: <code>{user.id}</code>
 
             msg = f"<b>{title}</b>\n\n" + "\n".join(lines)
 
-        await update.effective_message.reply_html(msg)
+        await update.effective_message.reply_html(
+            msg,
+            disable_web_page_preview=True,
+        )
 
     async def cmd_yesterday_report(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -618,7 +625,7 @@ ID: <code>{user.id}</code>
             point = c.get("point", 0)
             lines.append(
                 f"{c['emoji']} <b><code>{c['name']}</code></b> — "
-                f"{c['description']} (需要 {point} 经验值)"
+                f"{c['description']} <i>(需要 {point} 经验值)</i>"
             )
         msg = f"📰 <b>喵喵卡片介绍</b>\n\n" + "\n".join(lines)
         msg += "\n\nℹ <b>提示:</b> 如果要使用卡片，请找管理员喵!"
@@ -626,7 +633,11 @@ ID: <code>{user.id}</code>
         # 发送卡片介绍
         await update.effective_message.reply_html(msg)
 
-    async def cmd_my_cards(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    async def cmd_my_cards(
+        self,
+        update: Update,
+        context: ContextTypes.DEFAULT_TYPE,
+    ):
         user = update.effective_user
         logger.info("用户 %s 执行了命令 /mycards", getattr(user, "id", None))
 
