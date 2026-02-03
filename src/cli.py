@@ -181,10 +181,15 @@ def user_detail(user_id):
 
 
 @cli.command()
-@click.argument("chat_id", type=int)
+@click.argument("chat_id", type=str)
 def leaderboard(chat_id):
     """查看群组排行榜"""
-    console.print(f"[bold cyan]=== 群组 {chat_id} 排行榜 ===[/bold cyan]")
+    try:
+        chat_id_int = int(chat_id)
+    except ValueError:
+        console.print(f"[bold red]无效的chat_id: {chat_id}[/bold red]")
+        return
+    console.print(f"[bold cyan]=== 群组 {chat_id_int} 排行榜 ===[/bold cyan]")
 
     # 计算时间范围
     today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -193,13 +198,13 @@ def leaderboard(chat_id):
 
     # 获取排行榜数据
     yesterday_leaderboard = db.get_leaderboard_with_names(
-        chat_id, start_ts=yesterday_start, end_ts=yesterday_end, limit=10
+        chat_id_int, start_ts=yesterday_start, end_ts=yesterday_end, limit=10
     )
     today_leaderboard = db.get_leaderboard_with_names(
-        chat_id, start_ts=today_ts, end_ts=None, limit=10
+        chat_id_int, start_ts=today_ts, end_ts=None, limit=10
     )
     all_leaderboard = db.get_leaderboard_with_names(
-        chat_id, start_ts=None, end_ts=None, limit=10
+        chat_id_int, start_ts=None, end_ts=None, limit=10
     )
 
     # 显示昨日排行榜

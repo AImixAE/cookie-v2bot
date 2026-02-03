@@ -671,7 +671,7 @@ class CookieBotGUI(QMainWindow):
         """查询排行榜"""
         # 获取群组ID
         chat_id_text = self.chat_id_input.text()
-        if not chat_id_text.isdigit():
+        if not (chat_id_text.isdigit() or chat_id_text.startswith("-")):
             QMessageBox.warning(self, "警告", "请输入有效的群组ID")
             return
 
