@@ -91,6 +91,7 @@ uv run run.py cli clear-database
 
 ### 使用图形界面
 ```bash
+uv sync --extra gui # 确保安装 gui 依赖
 uv run run.py gui
 ```
 
