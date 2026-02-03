@@ -22,13 +22,18 @@ import logging
 # logger setup
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
 LOG_FILE = os.getenv("LOG_FILE", "")
+SHOW_LOG = os.getenv("SHOW_LOG", "true").lower() == "true"
 
 # 创建日志格式
 log_format = "%(asctime)s %(levelname)s %(name)s: %(message)s"
 date_format = "%Y-%m-%d %H:%M:%S"
 
 # 配置日志处理器
-handlers = [logging.StreamHandler()]
+handlers = []
+
+# 如果需要在终端显示日志，添加 StreamHandler
+if SHOW_LOG:
+    handlers.append(logging.StreamHandler())
 
 # 如果定义了日志文件位置，添加文件处理器
 if LOG_FILE:
@@ -37,6 +42,10 @@ if LOG_FILE:
         handlers.append(file_handler)
     except Exception as e:
         print(f"无法创建日志文件 {LOG_FILE}: {e}")
+
+# 如果没有任何处理器，至少添加一个 StreamHandler 以避免日志配置错误
+if not handlers:
+    handlers.append(logging.StreamHandler())
 
 logging.basicConfig(
     level=LOG_LEVEL, format=log_format, datefmt=date_format, handlers=handlers
