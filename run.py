@@ -4,6 +4,7 @@ import subprocess
 import click
 from dotenv import load_dotenv
 from rich import print
+from sys import argv
 
 load_dotenv()
 

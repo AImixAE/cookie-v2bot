@@ -13,5 +13,8 @@ wheels/
 .env*
 !.env.example
 
+# logs
+logs/
+
 # database
 data/*.db

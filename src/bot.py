@@ -21,8 +21,25 @@ import logging
 
 # logger setup
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()
+LOG_FILE = os.getenv("LOG_FILE", "")
+
+# 创建日志格式
+log_format = "%(asctime)s %(levelname)s %(name)s: %(message)s"
+date_format = "%Y-%m-%d %H:%M:%S"
+
+# 配置日志处理器
+handlers = [logging.StreamHandler()]
+
+# 如果定义了日志文件位置，添加文件处理器
+if LOG_FILE:
+    try:
+        file_handler = logging.FileHandler(LOG_FILE, encoding="utf-8")
+        handlers.append(file_handler)
+    except Exception as e:
+        print(f"无法创建日志文件 {LOG_FILE}: {e}")
+
 logging.basicConfig(
-    level=LOG_LEVEL, format="%(asctime)s %(levelname)s %(name)s: %(message)s"
+    level=LOG_LEVEL, format=log_format, datefmt=date_format, handlers=handlers
 )
 logger = logging.getLogger("cookie_v2bot")
 # suppress HTTP/urllib3 logs
