@@ -1,14 +1,23 @@
 [[levels]]
-need = 100
+delta = 100
 
 [[levels]]
-need = 225
+delta = 125
 
 [[levels]]
-need = 400
+delta = 175
 
 [[levels]]
-need = 600
+delta = 250
 
 [[levels]]
-need = 820
+delta = 275
+
+[[levels]]
+delta = 300
+
+[[levels]]
+delta = 325
+
+[[levels]]
+delta = 350

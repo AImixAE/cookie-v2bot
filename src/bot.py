@@ -241,26 +241,10 @@ class CookieBot:
         user_level = self.db.get_user_level(user.id)
 
         # 计算下一等级需要的经验值
-        level_configs = self.levels.get("levels", []) or []
-        next_level_need = 0
-        if user_level > 1:
-            # 查找当前等级对应的配置
-            if user_level - 2 < len(level_configs):
-                # 如果有下一等级，获取下一等级的 need 值
-                if user_level - 1 < len(level_configs):
-                    next_level_need = level_configs[user_level - 1].get("need", 0)
-                else:
-                    # 已经是最高等级
-                    next_level_need = exp_total
-            else:
-                # 等级配置不足，使用当前经验值
-                next_level_need = exp_total
-        else:
-            # 第一级，获取第一级的 need 值
-            if level_configs:
-                next_level_need = level_configs[0].get("need", 0)
-            else:
-                next_level_need = 100
+        next_level_need = self._get_next_level_exp_needed(user_level)
+        if next_level_need == 0:
+            # 已经是最高等级
+            next_level_need = exp_total
 
         # 计算今天获取的经验值
         today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -729,6 +713,45 @@ ID: <code>{user.id}</code>
         card_msg = f"🎁 <b>恭喜 <a href='tg://user?id={user.id}'>{user_name}</a> 购买成功！</b>\n\n{card_info['emoji']} <b>{card_info['name']}</b>\n{card_info['description']}\n\n消耗了 {card_point} 经验值，剩余 {user_exp - card_point} 经验值\n\n现在你可以使用这张卡片了！"
         await update.effective_message.reply_html(card_msg)
 
+    def _calculate_level_from_exp(self, exp):
+        """
+        根据经验值计算用户等级
+        使用 delta 格式的等级配置
+        """
+        level_configs = self.levels.get("levels", []) or []
+        if not level_configs:
+            return 1
+
+        # 计算每个等级需要的总经验值
+        total_exp_needed = 0
+        for i, level_config in enumerate(level_configs):
+            delta = level_config.get("delta", 0)
+            total_exp_needed += delta
+            if exp < total_exp_needed:
+                return i + 1
+
+        # 如果经验值超过所有等级配置，返回最高等级
+        return len(level_configs) + 1
+
+    def _get_next_level_exp_needed(self, current_level):
+        """
+        获取下一等级需要的总经验值
+        使用 delta 格式的等级配置
+        """
+        level_configs = self.levels.get("levels", default=[])
+
+        if current_level - 1 >= len(level_configs):
+            # 已经是最高等级
+            return 0
+
+        # 计算到下一等级需要的总经验值
+        total_exp_needed = 0
+        for i in range(current_level):
+            if i < len(level_configs):
+                total_exp_needed += level_configs[i].get("delta", 0)
+
+        return total_exp_needed
+
     async def check_user_level_up(self, user, update, context):
         """
         检查用户是否应该升级
@@ -738,16 +761,8 @@ ID: <code>{user.id}</code>
             user_exp = self.db.get_user_exp(user.id)
             current_level = self.db.get_user_level(user.id)
 
-            # 从配置中获取等级列表
-            levels: list = self.levels.get("levels", default=[])
-
             # 计算用户应该达到的等级
-            target_level = 1
-            for i, level_config in enumerate(levels):
-                if user_exp >= level_config.get("need", 0):
-                    target_level = i + 2
-                else:
-                    break
+            target_level = self._calculate_level_from_exp(user_exp)
 
             # 如果用户的等级低于应该达到的等级，就升级
             if target_level > current_level:
