@@ -216,11 +216,11 @@ def leaderboard(chat_id):
     table_yesterday.add_column("经验值")
 
     for i, user in enumerate(yesterday_leaderboard, 1):
-        username = user[2]
-        first_name = user[3]
-        last_name = user[4]
-        msg_count = user[1]
-        exp = user[5]
+        username = user[1]
+        first_name = user[2]
+        last_name = user[3]
+        exp = user[4]
+        msg_count = user[5]
 
         formatted_name = format_username(
             {
@@ -243,11 +243,11 @@ def leaderboard(chat_id):
     table_today.add_column("经验值")
 
     for i, user in enumerate(today_leaderboard, 1):
-        username = user[2]
-        first_name = user[3]
-        last_name = user[4]
-        msg_count = user[1]
-        exp = user[5]
+        username = user[1]
+        first_name = user[2]
+        last_name = user[3]
+        exp = user[4]
+        msg_count = user[5]
 
         formatted_name = format_username(
             {
@@ -270,11 +270,11 @@ def leaderboard(chat_id):
     table_all.add_column("经验值")
 
     for i, user in enumerate(all_leaderboard, 1):
-        username = user[2]
-        first_name = user[3]
-        last_name = user[4]
-        msg_count = user[1]
-        exp = user[5]
+        username = user[1]
+        first_name = user[2]
+        last_name = user[3]
+        exp = user[4]
+        msg_count = user[5]
 
         formatted_name = format_username(
             {

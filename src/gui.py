@@ -700,11 +700,11 @@ class CookieBotGUI(QMainWindow):
         # 填充昨日排行榜
         self.yesterday_leaderboard_table.setRowCount(0)
         for i, user in enumerate(yesterday_leaderboard, 1):
-            username = user[2]
-            first_name = user[3]
-            last_name = user[4]
-            msg_count = user[1]
-            exp = user[5]
+            username = user[1]
+            first_name = user[2]
+            last_name = user[3]
+            exp = user[4]
+            msg_count = user[5]
 
             # 格式化用户名
             name_parts = [p for p in [first_name, last_name] if p]
@@ -739,11 +739,11 @@ class CookieBotGUI(QMainWindow):
         # 填充今日排行榜
         self.today_leaderboard_table.setRowCount(0)
         for i, user in enumerate(today_leaderboard, 1):
-            username = user[2]
-            first_name = user[3]
-            last_name = user[4]
-            msg_count = user[1]
-            exp = user[5]
+            username = user[1]
+            first_name = user[2]
+            last_name = user[3]
+            exp = user[4]
+            msg_count = user[5]
 
             # 格式化用户名
             name_parts = [p for p in [first_name, last_name] if p]
@@ -778,11 +778,11 @@ class CookieBotGUI(QMainWindow):
         # 填充全部排行榜
         self.all_leaderboard_table.setRowCount(0)
         for i, user in enumerate(all_leaderboard, 1):
-            username = user[2]
-            first_name = user[3]
-            last_name = user[4]
-            msg_count = user[1]
-            exp = user[5]
+            username = user[1]
+            first_name = user[2]
+            last_name = user[3]
+            exp = user[4]
+            msg_count = user[5]
 
             # 格式化用户名
             name_parts = [p for p in [first_name, last_name] if p]

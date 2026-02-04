@@ -374,7 +374,14 @@ class Database:
         limit: int = 10,
     ):
         q = """
-        SELECT m.user_id, COUNT(*) as cnt, u.username, u.first_name, u.last_name, u.total_exp
+        SELECT m.user_id, u.username, u.first_name, u.last_name,
+               SUM(CASE 
+                   WHEN m.msg_type = 'photo' THEN 3
+                   WHEN m.msg_type = 'sticker' THEN 2
+                   WHEN m.msg_type = 'voice' THEN 3
+                   ELSE 1
+               END) as exp,
+               COUNT(*) as cnt
         FROM messages m
         LEFT JOIN users u ON m.user_id = u.user_id
         WHERE m.chat_id = ?
@@ -386,7 +393,7 @@ class Database:
         if end_ts is not None:
             q += " AND m.ts < ?"
             params.append(end_ts)
-        q += " GROUP BY m.user_id ORDER BY cnt DESC LIMIT ?"
+        q += " GROUP BY m.user_id ORDER BY exp DESC LIMIT ?"
         params.append(limit)
         cur = self.conn.cursor()
         cur.execute(q, params)
