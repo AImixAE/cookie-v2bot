@@ -158,9 +158,7 @@ class CookieBotGUI(QMainWindow):
             msg_count = group[1]
             last_ts = group[2]
             title = group[3] or "未知群组"
-
-            # 计算该群组所有用户的经验总和
-            exp_total = 0
+            exp_total = group[4] or 0
 
             # 格式化最后活动时间
             last_time = (

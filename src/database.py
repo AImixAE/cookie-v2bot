@@ -306,11 +306,17 @@ class Database:
 
     def get_chats_info(self):
         """Return list of rows:
-        (chat_id, message_count, last_ts, title)"""
+        (chat_id, message_count, last_ts, title, total_exp)"""
         cur = self.conn.cursor()
         cur.execute(
             """
-            SELECT m.chat_id, COUNT(*) as cnt, MAX(m.ts) as last_ts, c.title
+            SELECT m.chat_id, COUNT(*) as cnt, MAX(m.ts) as last_ts, c.title,
+                   SUM(CASE 
+                       WHEN m.msg_type = 'photo' THEN 3
+                       WHEN m.msg_type = 'sticker' THEN 2
+                       WHEN m.msg_type = 'voice' THEN 3
+                       ELSE 1
+                   END) as total_exp
             FROM messages m
             LEFT JOIN chats c ON m.chat_id = c.chat_id
             GROUP BY m.chat_id
