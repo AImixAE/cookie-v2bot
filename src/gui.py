@@ -1440,7 +1440,7 @@ class CookieBotGUI(QMainWindow):
 
             if not found:
                 log_content = (
-                    "未找到日志文件。请确保日志文件存在于以下位置之一：\n"
+                    "未找到日志文件或日志内容为空。请确保日志文件存在于以下位置之一：\n"
                     + "\n".join(log_files)
                 )
 
@@ -1536,6 +1536,16 @@ class CookieBotGUI(QMainWindow):
             # DEBUG 高亮为蓝色
             html_content = html_content.replace(
                 "DEBUG", "<span style='color: #4d96ff; font-weight: bold;'>DEBUG</span>"
+            )
+
+            # 高亮时间格式，如 2026-02-04 10:40:05
+            import re
+
+            time_pattern = r"(\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2})"
+            html_content = re.sub(
+                time_pattern,
+                "<span style='color: #9775fa; font-weight: bold;'>\\1</span>",
+                html_content,
             )
 
             # 替换换行符为HTML换行
