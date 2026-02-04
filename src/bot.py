@@ -553,6 +553,11 @@ ID: <code>{user.id}</code>
                 chat_id, start_ts=start_ts, end_ts=end_ts, limit=1
             )
 
+            # 获取昨日图片排行榜
+            photo_leaderboard = self.db.get_photo_leaderboard(
+                chat_id, start_ts=start_ts, end_ts=end_ts, limit=1
+            )
+
             # 获取所有徽章
             all_badges = self.badges.get("badges", default=[])
 
@@ -667,7 +672,59 @@ ID: <code>{user.id}</code>
                                     )
                                 )
 
-            print(badge_awards)
+            # 检查图片排行榜第一名
+            if photo_leaderboard:
+                top_photo_user_id = photo_leaderboard[0]["user_id"]
+                user_info = self.db.get_user_by_id(top_photo_user_id)
+
+                # 检查每个徽章的获取条件
+                for badge in all_badges:
+                    name = badge["name"]
+                    emoji = badge["emoji"]
+                    description = badge["description"]
+                    condition = badge.get("type", [])
+
+                    # 检查徽章条件
+                    if len(condition) == 3:
+                        condition_type, operator, target = condition
+
+                        if (
+                            condition_type == "send_image_top"
+                            and operator == "=="
+                            and target == "1"
+                        ):
+                            # 检查用户是否已有此徽章
+                            user_badges = self.db.get_user_badges(top_photo_user_id)
+                            if name not in user_badges:
+                                # 为用户添加徽章
+                                self.db.add_user_badges(
+                                    top_photo_user_id, [name], int(end_ts)
+                                )
+                                logger.info(
+                                    "用户 %s 获得了徽章: %s", top_photo_user_id, name
+                                )
+
+                                # 获取用户名称
+                                if user_info:
+                                    first_name = user_info["first_name"] or ""
+                                    last_name = user_info["last_name"] or ""
+                                    username = user_info["username"] or ""
+                                    user_name = (
+                                        f"{first_name} {last_name}".strip()
+                                        or username
+                                        or f"用户{top_photo_user_id}"
+                                    )
+                                else:
+                                    user_name = f"用户{top_photo_user_id}"
+                                badge_awards.append(
+                                    (
+                                        user_name,
+                                        top_photo_user_id,
+                                        emoji,
+                                        name,
+                                        description,
+                                    )
+                                )
 
             # 如果有用户获得徽章，发送报告
             if badge_awards:
@@ -684,7 +741,6 @@ ID: <code>{user.id}</code>
                     lines.append("")
 
                 badge_report = "\n".join(lines)
-                print(badge_report)
                 if badge_report:
                     await context.bot.send_message(
                         chat_id,

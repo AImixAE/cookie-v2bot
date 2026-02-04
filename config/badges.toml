@@ -9,3 +9,9 @@ name = "乐着呢"
 emoji = "😸"
 description = "今日贴纸数量排名第一"
 type = ["send_sticker_top", "==", "1"]
+
+[[badges]]
+name = "图王"
+emoji = "😸"
+description = "今日图片数量排名第一"
+type = ["send_image_top", "==", "1"]
