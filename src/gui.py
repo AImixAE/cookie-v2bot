@@ -2,6 +2,8 @@
 """Cookie Bot 图形界面"""
 
 import sys
+import os
+import csv
 from datetime import datetime, timedelta
 from PySide6.QtWidgets import (
     QApplication,
@@ -27,11 +29,12 @@ from PySide6.QtWidgets import (
     QTextEdit,
     QDateEdit,
     QStyleFactory,
+    QFileDialog,
 )
 from PySide6.QtGui import QAction, QPalette, QColor, QFont
 from PySide6.QtCore import Qt, QDate
 from src.database import Database
-from src.core import midnight_range_for_yesterday
+from src.core import midnight_range_for_yesterday, format_file_size
 
 
 def setup_dark_theme(app):
@@ -1269,6 +1272,11 @@ class CookieBotGUI(QMainWindow):
 
         layout.addWidget(log_preview_group)
 
+        # 创建日志文件大小标签
+        self.log_size_label = QLabel("日志占用空间: 0 KB")
+        self.log_size_label.setAlignment(Qt.AlignRight)
+        layout.addWidget(self.log_size_label)
+
         # 填充日志内容
         self.refresh_log_content()
 
@@ -1289,20 +1297,20 @@ class CookieBotGUI(QMainWindow):
             # 获取群组数量
             total_groups = len(groups)
 
-            # 计算数据库大小（这里使用模拟值，实际应该计算文件大小）
-            import os
+            # 计算数据库大小
 
-            db_path = "data/bot.db"
+            db_path = "data/chat.db"
             if os.path.exists(db_path):
-                database_size = os.path.getsize(db_path) / (1024 * 1024)  # 转换为MB
+                database_size_bytes = os.path.getsize(db_path)
+                database_size = format_file_size(database_size_bytes)
             else:
-                database_size = 0
+                database_size = "0 B"
 
             # 更新标签
             self.total_messages_label.setText(f"所有群组消息总数: {total_messages}")
             self.total_users_label.setText(f"用户总数: {total_users}")
             self.total_groups_label.setText(f"群组数量: {total_groups}")
-            self.database_size_label.setText(f"占用空间: {database_size:.2f} MB")
+            self.database_size_label.setText(f"占用空间: {database_size}")
 
             # 刷新成功，无需提示
         except Exception as e:
@@ -1310,9 +1318,6 @@ class CookieBotGUI(QMainWindow):
 
     def export_to_csv(self):
         """导出数据到CSV"""
-        from PySide6.QtWidgets import QFileDialog
-        import csv
-        import os
 
         # 选择导出文件夹
         folder_path = QFileDialog.getExistingDirectory(self, "选择导出文件夹")
@@ -1412,11 +1417,14 @@ class CookieBotGUI(QMainWindow):
 
             log_content = ""
             found = False
+            total_size = 0  # 日志文件总大小（字节）
 
             for log_file in log_files:
-                import os
-
                 if os.path.exists(log_file) and os.path.isfile(log_file):
+                    # 计算文件大小
+                    file_size = os.path.getsize(log_file)
+                    total_size += file_size
+
                     try:
                         with open(
                             log_file, "r", encoding="utf-8", errors="replace"
@@ -1441,6 +1449,13 @@ class CookieBotGUI(QMainWindow):
 
             # 应用高亮（简单版本）
             self.apply_log_highlighting()
+
+            # 更新日志文件大小标签
+            if total_size > 0:
+                size_str = format_file_size(total_size)
+                self.log_size_label.setText(f"日志占用空间: {size_str}")
+            else:
+                self.log_size_label.setText("日志占用空间: 0 B")
 
         except Exception as e:
             self.log_textedit.setText(f"刷新日志失败: {str(e)}")
@@ -1468,8 +1483,6 @@ class CookieBotGUI(QMainWindow):
             errors = []
 
             for log_file in log_files:
-                import os
-
                 if os.path.exists(log_file) and os.path.isfile(log_file):
                     try:
                         with open(log_file, "w", encoding="utf-8") as f:
