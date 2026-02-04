@@ -1,5 +1,6 @@
 import os
 import random
+from rich import print
 from datetime import datetime, timedelta, time as dtime
 from dotenv import load_dotenv
 from telegram import Update, constants
@@ -95,9 +96,11 @@ class CookieBot:
             CommandHandler("yesterday_report", self.cmd_yesterday_report)
         )
 
-        self.app.job_queue.run_daily(
-            self.daily_job, time=dtime(hour=0, minute=0, second=5)
-        )
+        self.daily_time = dtime(hour=0, minute=0, second=5)
+        self.badge_time = dtime(hour=0, minute=0, second=10)
+
+        self.app.job_queue.run_daily(self.daily_job, time=self.daily_time)
+        self.app.job_queue.run_daily(self.badge_job, time=self.badge_time)
         logger.info("CookieBot 初始化成功!")
 
     async def start(self):
@@ -469,9 +472,7 @@ ID: <code>{user.id}</code>
             username = r["username"]
             name_parts = [p for p in [first, last] if p]
             name = " ".join(name_parts) if name_parts else f"ID:{r['user_id']}"
-            if username == getattr(user, "username", None):
-                return f'<a href="t.me/{username}"><b>{name}</b></a>'
-            else:
+            if username:
                 return f'<a href="t.me/{username}">{name}</a>'
             return name
 
@@ -519,6 +520,182 @@ ID: <code>{user.id}</code>
             except Exception:
                 logger.exception("在 %s 中发送报告失败", cid)
                 continue
+
+    async def badge_job(self, context: ContextTypes.DEFAULT_TYPE):
+        """徽章检测任务"""
+        logger.info("开始执行徽章检测任务...")
+        # 计算昨天的时间范围
+        y_start, y_end = midnight_range_for_yesterday()
+        # 获取所有已知的聊天
+        chats = self.db.get_known_chats()
+
+        # 对每个聊天执行徽章检测
+        for cid in chats:
+            try:
+                await self._check_and_report_badges(cid, y_start, y_end, context)
+                logger.info("在 %s 中完成徽章检测", cid)
+            except Exception:
+                logger.exception("在 %s 中执行徽章检测失败", cid)
+                continue
+
+        logger.info("徽章检测任务执行完成！")
+
+    async def _check_and_report_badges(self, chat_id, start_ts, end_ts, context):
+        """检查并报告徽章获得情况"""
+        try:
+            # 获取昨日消息排行榜
+            message_leaderboard = self.db.get_leaderboard(
+                chat_id, start_ts=start_ts, end_ts=end_ts, limit=1
+            )
+
+            # 获取昨日贴纸排行榜
+            sticker_leaderboard = self.db.get_sticker_leaderboard(
+                chat_id, start_ts=start_ts, end_ts=end_ts, limit=1
+            )
+
+            # 获取所有徽章
+            all_badges = self.badges.get("badges", default=[])
+
+            # 存储获得徽章的用户信息
+            badge_awards = []
+
+            # 检查消息排行榜第一名
+            if message_leaderboard:
+                top_message_user_id = message_leaderboard[0]["user_id"]
+                user_info = self.db.get_user_by_id(top_message_user_id)
+
+                # 检查每个徽章的获取条件
+                for badge in all_badges:
+                    name = badge["name"]
+                    emoji = badge["emoji"]
+                    description = badge["description"]
+                    condition = badge.get("type", [])
+
+                    # 检查徽章条件
+                    if len(condition) == 3:
+                        condition_type, operator, target = condition
+
+                        if (
+                            condition_type == "send_message_top"
+                            and operator == "=="
+                            and target == "1"
+                        ):
+                            # 检查用户是否已有此徽章
+                            user_badges = self.db.get_user_badges(top_message_user_id)
+                            if name not in user_badges:
+                                # 为用户添加徽章
+                                self.db.add_user_badges(
+                                    top_message_user_id, [name], int(end_ts)
+                                )
+                                logger.info(
+                                    "用户 %s 获得了徽章: %s", top_message_user_id, name
+                                )
+
+                                # 获取用户名称
+                                if user_info:
+                                    first_name = user_info["first_name"] or ""
+                                    last_name = user_info["last_name"] or ""
+                                    username = user_info["username"] or ""
+                                    user_name = (
+                                        f"{first_name} {last_name}".strip()
+                                        or username
+                                        or f"用户{top_message_user_id}"
+                                    )
+                                else:
+                                    user_name = f"用户{top_message_user_id}"
+                                badge_awards.append(
+                                    (
+                                        user_name,
+                                        top_message_user_id,
+                                        emoji,
+                                        name,
+                                        description,
+                                    )
+                                )
+
+            # 检查贴纸排行榜第一名
+            if sticker_leaderboard:
+                top_sticker_user_id = sticker_leaderboard[0]["user_id"]
+                user_info = self.db.get_user_by_id(top_sticker_user_id)
+
+                # 检查每个徽章的获取条件
+                for badge in all_badges:
+                    name = badge["name"]
+                    emoji = badge["emoji"]
+                    description = badge["description"]
+                    condition = badge.get("type", [])
+
+                    # 检查徽章条件
+                    if len(condition) == 3:
+                        condition_type, operator, target = condition
+
+                        if (
+                            condition_type == "send_sticker_top"
+                            and operator == "=="
+                            and target == "1"
+                        ):
+                            # 检查用户是否已有此徽章
+                            user_badges = self.db.get_user_badges(top_sticker_user_id)
+                            if name not in user_badges:
+                                # 为用户添加徽章
+                                self.db.add_user_badges(
+                                    top_sticker_user_id, [name], int(end_ts)
+                                )
+                                logger.info(
+                                    "用户 %s 获得了徽章: %s", top_sticker_user_id, name
+                                )
+
+                                # 获取用户名称
+                                if user_info:
+                                    first_name = user_info["first_name"] or ""
+                                    last_name = user_info["last_name"] or ""
+                                    username = user_info["username"] or ""
+                                    user_name = (
+                                        f"{first_name} {last_name}".strip()
+                                        or username
+                                        or f"用户{top_sticker_user_id}"
+                                    )
+                                else:
+                                    user_name = f"用户{top_sticker_user_id}"
+                                badge_awards.append(
+                                    (
+                                        user_name,
+                                        top_sticker_user_id,
+                                        emoji,
+                                        name,
+                                        description,
+                                    )
+                                )
+
+            print(badge_awards)
+
+            # 如果有用户获得徽章，发送报告
+            if badge_awards:
+                lines = []
+                for user_name, user_id, emoji, name, description in badge_awards:
+                    # 获取用户的username
+                    user_info = self.db.get_user_by_id(user_id)
+                    username = user_info["username"] or ""
+                    lines.append(
+                        f"🏅 <b><a href='t.me/{username}'>{user_name}</a> 获得了徽章</b>"
+                    )
+                    lines.append(f"{emoji} <b>{name}</b>")
+                    lines.append(f"{description}")
+                    lines.append("")
+
+                badge_report = "\n".join(lines)
+                print(badge_report)
+                if badge_report:
+                    await context.bot.send_message(
+                        chat_id,
+                        badge_report,
+                        parse_mode="HTML",
+                        disable_web_page_preview=True,
+                    )
+                    logger.info("在 %s 中发送了徽章获得报告", chat_id)
+
+        except Exception as e:
+            logger.exception("检查徽章时发生错误: %s", e)
 
     async def cmd_achievements(
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
@@ -924,95 +1101,5 @@ ID: <code>{user.id}</code>
             logger.exception("检查成就时发生错误: %s", e)
 
     async def _unlock_badge(self, user, chat, m, ts):
-        try:
-            # 获取用户的上一条消息记录
-            # 这里需要在database.py中添加一个方法来获取用户的上一条消息
-            # 暂时简化处理，通过检查用户今天是否已经获得过徽章来判断
-            # 实际应该检查上一条消息的时间戳
-
-            # 获取今日的开始时间
-            today_start = datetime.now().replace(
-                hour=0, minute=0, second=0, microsecond=0
-            )
-            today_ts = int(today_start.timestamp())
-
-            # 获取用户今天的徽章记录
-            # 这里需要在database.py中添加一个方法来获取用户今天的徽章
-            # 暂时简化处理，检查用户是否已经有任何徽章
-            # 实际应该检查今天是否已经获得过徽章
-            user_badge_names = self.db.get_user_badges(user.id)
-
-            # 检查用户今天是否已经发送过消息
-            today_counts = self.db.get_user_counts(
-                user.id, start_ts=today_ts, end_ts=None
-            )
-            today_messages = today_counts.get("total", 0)
-
-            # 如果用户今天已经发送过消息，说明不是第一条消息，跳过徽章检查
-            # 这样可以确保只有每天的第一条消息才会触发徽章检查
-            if today_messages > 1:
-                pass
-            else:
-                # 获取用户的今日统计数据
-                today_stickers = today_counts.get("sticker", 0)
-
-                # 获取所有徽章
-                all_badges = self.badges.get("badges", default=[])
-
-                # 检查每个徽章的获取条件
-                for badge in all_badges:
-                    name = badge["name"]
-                    emoji = badge["emoji"]
-                    description = badge["description"]
-                    condition = badge.get("type", [])
-
-                    # 跳过用户已有的徽章
-                    if name in user_badge_names:
-                        continue
-
-                    # 检查徽章条件
-                    earned = False
-                    if len(condition) == 3:
-                        condition_type, operator, target = condition
-
-                        if (
-                            condition_type == "send_message_top"
-                            and operator == "=="
-                            and target == "1"
-                        ):
-                            # 获取今日消息排行榜
-                            chat_id = chat.id if chat else None
-                            if chat_id:
-                                leaderboard = self.db.get_leaderboard(
-                                    chat_id, start_ts=today_ts, end_ts=None, limit=1
-                                )
-                                if leaderboard and leaderboard[0]["user_id"] == user.id:
-                                    earned = True
-                        elif (
-                            condition_type == "send_sticker_top"
-                            and operator == "=="
-                            and target == "1"
-                        ):
-                            chat_id = chat.id if chat else None
-                            if chat_id:
-                                sticker_leaderboard = self.db.get_sticker_leaderboard(
-                                    chat_id, start_ts=today_ts, end_ts=None, limit=1
-                                )
-                                if (
-                                    sticker_leaderboard
-                                    and sticker_leaderboard[0]["user_id"] == user.id
-                                ):
-                                    earned = True
-
-                    if earned:
-                        # 为用户添加徽章
-                        self.db.add_user_badges(user.id, [name], ts)
-                        logger.info("用户 %s 获得了徽章: %s", user.id, name)
-
-                        user_name = user.full_name or user.username or f"用户{user.id}"
-                        badge_msg = f"🏅 <b>恭喜 <a href='tg://user?id={user.id}'>{user_name}</a> 获得新徽章！</b>\n\n{emoji} <b>{name}</b>\n{description}\n\n继续努力获得更多徽章吧！"
-                        await m.reply_html(badge_msg)
-
-                        user_badge_names.append(name)
-        except Exception as e:
-            logger.exception("检查徽章时发生错误: %s", e)
+        # 徽章检查已移至daily_job中执行
+        pass
