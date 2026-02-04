@@ -464,8 +464,10 @@ ID: <code>{user.id}</code>
             username = r["username"]
             name_parts = [p for p in [first, last] if p]
             name = " ".join(name_parts) if name_parts else f"ID:{r['user_id']}"
-            if username:
-                return f"{name} (@{username})"
+            if username == getattr(user, "username", None):
+                return f'<a href="t.me/{username}"><b>{name}</b></a>'
+            else:
+                return f'<a href="t.me/{username}">{name}</a>'
             return name
 
         for cid in chats:
@@ -502,7 +504,12 @@ ID: <code>{user.id}</code>
                 )
 
             try:
-                await context.bot.send_message(cid, txt, parse_mode="HTML")
+                await context.bot.send_message(
+                    cid,
+                    txt,
+                    parse_mode="HTML",
+                    disable_web_page_preview=True,
+                )
                 logger.info("在 %s 中发送了报告", cid)
             except Exception:
                 logger.exception("在 %s 中发送报告失败", cid)
