@@ -129,6 +129,11 @@ class CookieBot:
         msg_type = self._msg_type(m)
         ts = int(m.date.timestamp())
 
+        # 检查是否是私聊，如果是则不处理
+        if chat.id == user.id:
+            logger.debug("忽略私聊消息: user=%s", getattr(user, "id", None))
+            return
+
         logger.debug(
             "收到消息: user=%s chat=%s type=%s ts=%s",
             getattr(user, "id", None),
