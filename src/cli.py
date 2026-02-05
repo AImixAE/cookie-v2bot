@@ -178,7 +178,10 @@ def user_detail(user_id):
 
 @cli.command()
 @click.argument("chat_id", type=str)
-def leaderboard(chat_id):
+@click.option(
+    "--sort", "sort_by", default="exp", help="排序方式: exp (经验值) 或 msg (消息数)"
+)
+def leaderboard(chat_id, sort_by):
     """查看群组排行榜"""
     try:
         chat_id_int = int(chat_id)
@@ -194,13 +197,17 @@ def leaderboard(chat_id):
 
     # 获取排行榜数据
     yesterday_leaderboard = db.get_leaderboard_with_names(
-        chat_id_int, start_ts=yesterday_start, end_ts=yesterday_end, limit=10
+        chat_id_int,
+        start_ts=yesterday_start,
+        end_ts=yesterday_end,
+        limit=10,
+        sort_by=sort_by,
     )
     today_leaderboard = db.get_leaderboard_with_names(
-        chat_id_int, start_ts=today_ts, end_ts=None, limit=10
+        chat_id_int, start_ts=today_ts, end_ts=None, limit=10, sort_by=sort_by
     )
     all_leaderboard = db.get_leaderboard_with_names(
-        chat_id_int, start_ts=None, end_ts=None, limit=10
+        chat_id_int, start_ts=None, end_ts=None, limit=10, sort_by=sort_by
     )
 
     # 显示昨日排行榜

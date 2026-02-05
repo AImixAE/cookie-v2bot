@@ -378,6 +378,7 @@ class Database:
         start_ts: Optional[int] = None,
         end_ts: Optional[int] = None,
         limit: int = 10,
+        sort_by: str = "exp",
     ):
         q = """
         SELECT m.user_id, u.username, u.first_name, u.last_name,
@@ -399,7 +400,8 @@ class Database:
         if end_ts is not None:
             q += " AND m.ts < ?"
             params.append(end_ts)
-        q += " GROUP BY m.user_id ORDER BY exp DESC LIMIT ?"
+        order_by = "exp" if sort_by == "exp" else "cnt"
+        q += f" GROUP BY m.user_id ORDER BY {order_by} DESC LIMIT ?"
         params.append(limit)
         cur = self.conn.cursor()
         cur.execute(q, params)
@@ -467,6 +469,16 @@ class Database:
             (user_id,),
         )
         return [r[0] for r in cur.fetchall()]
+
+    def get_user_badge_count(self, user_id: int, badge: str) -> int:
+        cur = self.conn.cursor()
+        cur.execute(
+            """
+            SELECT COUNT(*) FROM badges WHERE user_id = ? AND badge = ?
+            """,
+            (user_id, badge),
+        )
+        return cur.fetchone()[0]
 
     def get_user_badges_count(self, user_id: int) -> int:
         cur = self.conn.cursor()

@@ -600,6 +600,17 @@ class CookieBotGUI(QMainWindow):
         input_layout.addWidget(query_button)
         layout.addLayout(input_layout)
 
+        # 添加排序方式选择
+        sort_layout = QHBoxLayout()
+        sort_label = QLabel("排序方式:")
+        self.sort_combo = QComboBox()
+        self.sort_combo.addItem("按经验值", "exp")
+        self.sort_combo.addItem("按消息数", "msg")
+        sort_layout.addWidget(sort_label)
+        sort_layout.addWidget(self.sort_combo)
+        sort_layout.addStretch()
+        layout.addLayout(sort_layout)
+
         # 创建排行榜标签页
         self.leaderboard_tabs = QTabWidget()
 
@@ -615,6 +626,10 @@ class CookieBotGUI(QMainWindow):
             QHeaderView.Stretch
         )
         yesterday_layout.addWidget(self.yesterday_leaderboard_table)
+        # 添加用户数量标签
+        self.yesterday_user_count_label = QLabel("共 0 个用户")
+        self.yesterday_user_count_label.setAlignment(Qt.AlignRight)
+        yesterday_layout.addWidget(self.yesterday_user_count_label)
         self.leaderboard_tabs.addTab(self.yesterday_leaderboard_tab, "昨日")
 
         # 创建今日排行榜
@@ -629,6 +644,10 @@ class CookieBotGUI(QMainWindow):
             QHeaderView.Stretch
         )
         today_layout.addWidget(self.today_leaderboard_table)
+        # 添加用户数量标签
+        self.today_user_count_label = QLabel("共 0 个用户")
+        self.today_user_count_label.setAlignment(Qt.AlignRight)
+        today_layout.addWidget(self.today_user_count_label)
         self.leaderboard_tabs.addTab(self.today_leaderboard_tab, "今日")
 
         # 创建全部排行榜
@@ -643,6 +662,10 @@ class CookieBotGUI(QMainWindow):
             QHeaderView.Stretch
         )
         all_layout.addWidget(self.all_leaderboard_table)
+        # 添加用户数量标签
+        self.all_user_count_label = QLabel("共 0 个用户")
+        self.all_user_count_label.setAlignment(Qt.AlignRight)
+        all_layout.addWidget(self.all_user_count_label)
         self.leaderboard_tabs.addTab(self.all_leaderboard_tab, "全部")
 
         # 初始化排行榜
@@ -679,6 +702,9 @@ class CookieBotGUI(QMainWindow):
 
         chat_id = int(chat_id_text)
 
+        # 获取排序方式
+        sort_by = self.sort_combo.currentData()
+
         # 计算时间范围
         today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         today_ts = int(today_start.timestamp())
@@ -686,13 +712,17 @@ class CookieBotGUI(QMainWindow):
 
         # 获取排行榜数据
         yesterday_leaderboard = self.db.get_leaderboard_with_names(
-            chat_id, start_ts=yesterday_start, end_ts=yesterday_end, limit=10
+            chat_id,
+            start_ts=yesterday_start,
+            end_ts=yesterday_end,
+            # limit=10,
+            sort_by=sort_by,
         )
         today_leaderboard = self.db.get_leaderboard_with_names(
-            chat_id, start_ts=today_ts, end_ts=None, limit=10
+            chat_id, start_ts=today_ts, end_ts=None, limit=10, sort_by=sort_by
         )
         all_leaderboard = self.db.get_leaderboard_with_names(
-            chat_id, start_ts=None, end_ts=None, limit=10
+            chat_id, start_ts=None, end_ts=None, limit=10, sort_by=sort_by
         )
 
         # 填充昨日排行榜
@@ -734,6 +764,11 @@ class CookieBotGUI(QMainWindow):
                 row_position, 3, QTableWidgetItem(str(exp))
             )
 
+        # 更新昨日用户数量
+        self.yesterday_user_count_label.setText(
+            f"共 {len(yesterday_leaderboard)} 个用户"
+        )
+
         # 填充今日排行榜
         self.today_leaderboard_table.setRowCount(0)
         for i, user in enumerate(today_leaderboard, 1):
@@ -773,6 +808,9 @@ class CookieBotGUI(QMainWindow):
                 row_position, 3, QTableWidgetItem(str(exp))
             )
 
+        # 更新今日用户数量
+        self.today_user_count_label.setText(f"共 {len(today_leaderboard)} 个用户")
+
         # 填充全部排行榜
         self.all_leaderboard_table.setRowCount(0)
         for i, user in enumerate(all_leaderboard, 1):
@@ -811,6 +849,9 @@ class CookieBotGUI(QMainWindow):
             self.all_leaderboard_table.setItem(
                 row_position, 3, QTableWidgetItem(str(exp))
             )
+
+        # 更新全部用户数量
+        self.all_user_count_label.setText(f"共 {len(all_leaderboard)} 个用户")
 
     def create_user_operation_tab(self):
         """创建用户操作标签页"""

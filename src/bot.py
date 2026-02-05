@@ -177,8 +177,6 @@ class CookieBot:
 
         await self._unlock_achievement(user, chat, msg_type, ts, m)
 
-        await self._unlock_badge(user, chat, m, ts)
-
     async def cmd_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """处理 /start 命令"""
         user = update.effective_user
@@ -218,6 +216,7 @@ class CookieBot:
 <b>🏆 排行榜</b>
 /leaderboard - 查看昨日排行榜（top 10）
 /leaderboard all - 查看全部时间排行榜
+/leaderboard daily exp - 以经验值排序查看昨日排行榜
 
 <b>📈 统计报告</b>
 /yesterday_report - 查看昨日统计报告
@@ -354,23 +353,25 @@ ID: <code>{user.id}</code>
     async def cmd_leaderboard(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         args = context.args or []
         mode = args[0] if args else "daily"
+        sort_by = args[1] if len(args) > 1 else "msg"
         user = update.effective_user
         logger.info(
-            "用户 %s 执行了命令 /leaderboard (mode=%s)",
+            "用户 %s 执行了命令 /leaderboard (mode=%s, sort_by=%s)",
             getattr(user, "id", None),
             mode,
+            sort_by,
         )
         chat = update.effective_chat
         if mode == "all":
             rows = self.db.get_leaderboard_with_names(
-                chat.id, start_ts=None, end_ts=None, limit=10
+                chat.id, start_ts=None, end_ts=None, limit=10, sort_by=sort_by
             )
             title = "🏆 全部排行榜"
             emoji = "🎯"
         else:
             y_start, y_end = midnight_range_for_yesterday()
             rows = self.db.get_leaderboard_with_names(
-                chat.id, start_ts=y_start, end_ts=y_end, limit=10
+                chat.id, start_ts=y_start, end_ts=y_end, limit=10, sort_by=sort_by
             )
             title = "🏆 昨日排行榜"
             emoji = "🔥"
@@ -396,10 +397,20 @@ ID: <code>{user.id}</code>
             medals = ["🥇", "🥈", "🥉"]
             lines = []
             for i, r in enumerate(rows):
-                medal = medals[i] if i < 3 else f"{i+1}️⃣"
-                lines.append(
-                    f"{medal} {format_name(r)} — <code>{r['cnt']}</code> 条消息"
-                )
+                if i < 3:
+                    medal = medals[i]
+                # elif i < 9:
+                #     medal = f"{i+1}️⃣"
+                else:
+                    medal = f"{i+1} |"
+                if sort_by == "msg":
+                    lines.append(
+                        f"{medal} {format_name(r)} — <code>{r['cnt']}</code> 条消息"
+                    )
+                else:
+                    lines.append(
+                        f"{medal} {format_name(r)} — <code>{r['exp']}</code> 经验值"
+                    )
 
             msg = f"<b>{title}</b>\n\n" + "\n".join(lines)
 
@@ -642,35 +653,36 @@ ID: <code>{user.id}</code>
                             # 检查用户是否已有此徽章
                             user_badges = self.db.get_user_badges(top_sticker_user_id)
                             if name not in user_badges:
-                                # 为用户添加徽章
-                                self.db.add_user_badges(
-                                    top_sticker_user_id, [name], int(end_ts)
-                                )
-                                logger.info(
-                                    "用户 %s 获得了徽章: %s", top_sticker_user_id, name
-                                )
+                                pass
+                            # 为用户添加徽章
+                            self.db.add_user_badges(
+                                top_sticker_user_id, [name], int(end_ts)
+                            )
+                            logger.info(
+                                "用户 %s 获得了徽章: %s", top_sticker_user_id, name
+                            )
 
-                                # 获取用户名称
-                                if user_info:
-                                    first_name = user_info["first_name"] or ""
-                                    last_name = user_info["last_name"] or ""
-                                    username = user_info["username"] or ""
-                                    user_name = (
-                                        f"{first_name} {last_name}".strip()
-                                        or username
-                                        or f"用户{top_sticker_user_id}"
-                                    )
-                                else:
-                                    user_name = f"用户{top_sticker_user_id}"
-                                badge_awards.append(
-                                    (
-                                        user_name,
-                                        top_sticker_user_id,
-                                        emoji,
-                                        name,
-                                        description,
-                                    )
+                            # 获取用户名称
+                            if user_info:
+                                first_name = user_info["first_name"] or ""
+                                last_name = user_info["last_name"] or ""
+                                username = user_info["username"] or ""
+                                user_name = (
+                                    f"{first_name} {last_name}".strip()
+                                    or username
+                                    or f"用户{top_sticker_user_id}"
                                 )
+                            else:
+                                user_name = f"用户{top_sticker_user_id}"
+                            badge_awards.append(
+                                (
+                                    user_name,
+                                    top_sticker_user_id,
+                                    emoji,
+                                    name,
+                                    description,
+                                )
+                            )
 
             # 检查图片排行榜第一名
             if photo_leaderboard:
@@ -849,16 +861,22 @@ ID: <code>{user.id}</code>
         user_badges: list = self.db.get_user_badges(user.id)
         # 获取所有徽章
         all_badges: list = self.badges.get("badges", default=[])
+        # 统计每张徽章的数量
+        badge_counts = {}
+        for badge_name in user_badges:
+            badge_counts[badge_name] = badge_counts.get(badge_name, 0) + 1
         # 格式化徽章介绍
         lines = []
         warnings = []
-        for badge_name in user_badges:
+        for badge_name, count in badge_counts.items():
             # 查找对应的完整徽章信息
             badge_info = next((b for b in all_badges if b["name"] == badge_name), None)
             if badge_info:
-                lines.append(f"{badge_info['emoji']} <b>{badge_info['name']}</b>")
+                lines.append(
+                    f"{badge_info['emoji']} <b>{badge_info['name']}</b> — 数量: {count}"
+                )
             else:
-                lines.append(f"<b>{badge_name}</b>")
+                lines.append(f"<b>{badge_name}</b> — 数量: {count}")
                 warnings.append(f"徽章 {badge_name}")
 
         if not lines:
@@ -1155,7 +1173,3 @@ ID: <code>{user.id}</code>
                     user_achievement_names.append(name)
         except Exception as e:
             logger.exception("检查成就时发生错误: %s", e)
-
-    async def _unlock_badge(self, user, chat, m, ts):
-        # 徽章检查已移至daily_job中执行
-        pass
