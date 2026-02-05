@@ -4,8 +4,90 @@ import subprocess
 import click
 from dotenv import load_dotenv
 from rich import print
+import datetime
+import glob
 
 load_dotenv()
+
+
+def cleanup_logs():
+    """清理超过3天的日志文件"""
+    # 获取日志目录路径，默认在 data/logs 目录
+    log_dir = os.getenv(
+        "LOG_DIR",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs"),
+    )
+
+    # 检查日志目录是否存在
+    if not os.path.exists(log_dir):
+        print(f"[yellow]⚠️  日志目录不存在: {log_dir}[/yellow]")
+        return
+
+    # 计算3天前的时间
+    three_days_ago = datetime.datetime.now() - datetime.timedelta(days=3)
+
+    # 查找所有日志文件
+    log_files = glob.glob(os.path.join(log_dir, "*.log"))
+
+    # 统计删除的文件数量
+    deleted_count = 0
+
+    # 遍历日志文件
+    for log_file in log_files:
+        try:
+            # 尝试获取文件的创建时间（birth time）
+            if sys.platform == "win32":
+                # Windows 平台
+                import win32file
+                import win32con
+
+                handle = win32file.CreateFile(
+                    log_file,
+                    win32con.GENERIC_READ,
+                    win32con.FILE_SHARE_READ
+                    | win32con.FILE_SHARE_WRITE
+                    | win32con.FILE_SHARE_DELETE,
+                    None,
+                    win32con.OPEN_EXISTING,
+                    win32con.FILE_FLAG_BACKUP_SEMANTICS,
+                    None,
+                )
+                creation_time = win32file.GetFileTime(handle)[0]
+                file_time = datetime.datetime.fromtimestamp(
+                    win32file.FileTimeToSystemTime(creation_time).GetTime()
+                )
+                win32file.CloseHandle(handle)
+            else:
+                # Unix 平台
+                stat_info = os.stat(log_file)
+                try:
+                    # 尝试获取创建时间
+                    file_time = datetime.datetime.fromtimestamp(stat_info.st_birthtime)
+                except AttributeError:
+                    # 如果不支持创建时间，则使用修改时间
+                    file_time = datetime.datetime.fromtimestamp(stat_info.st_mtime)
+        except Exception:
+            # 如果获取创建时间失败，则使用修改时间作为备选
+            file_time = datetime.datetime.fromtimestamp(os.path.getmtime(log_file))
+
+        # 如果文件时间超过3天，则删除
+        if file_time < three_days_ago:
+            try:
+                os.remove(log_file)
+                deleted_count += 1
+                print(
+                    f"[green]🗑️  删除过期日志文件: {os.path.basename(log_file)}[/green]"
+                )
+            except Exception as e:
+                print(
+                    f"[red]❌  删除日志文件失败 {os.path.basename(log_file)}: {e}[/red]"
+                )
+
+    # 输出清理结果
+    if deleted_count > 0:
+        print(f"[green]✅  清理完成，共删除 {deleted_count} 个过期日志文件[/green]")
+    else:
+        print(f"[green]✅  无过期日志文件需要清理[/green]")
 
 
 def check_git_update():
@@ -58,8 +140,24 @@ def check_git_update():
 
 @click.group()
 @click.option("--no-update-check", is_flag=True, default=False, help="跳过更新检查")
-def main(no_update_check):
+@click.option("--no-log-cleanup", is_flag=True, default=False, help="跳过日志清理")
+def main(no_update_check, no_log_cleanup):
     """Run bot or cli/gui helpers"""
+    # 检查 .env 文件中的 NO_LOG_CLEANUP 环境变量
+    env_no_log_cleanup = os.getenv("NO_LOG_CLEANUP", "").lower() in [
+        "true",
+        "1",
+        "yes",
+        "y",
+    ]
+    # 如果 .env 中设置了 NO_LOG_CLEANUP，则使用其值
+    if env_no_log_cleanup:
+        no_log_cleanup = True
+
+    # 清理过期日志文件
+    if not no_log_cleanup:
+        cleanup_logs()
+
     # 检查 .env 文件中的 NO_UPDATE 环境变量
     env_no_update = os.getenv("NO_UPDATE", "").lower() in ["true", "1", "yes", "y"]
     # 如果 .env 中设置了 NO_UPDATE，则使用其值
