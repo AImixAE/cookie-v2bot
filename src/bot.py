@@ -137,12 +137,16 @@ class CookieBot:
             logger.debug("忽略私聊消息: user=%s", getattr(user, "id", None))
             return
 
+        # 检查是否是转发的消息
+        is_forwarded = bool(m.forward_date or m.forward_from or m.forward_from_chat)
+
         logger.debug(
-            "收到消息: user=%s chat=%s type=%s ts=%s",
+            "收到消息: user=%s chat=%s type=%s ts=%s forwarded=%s",
             getattr(user, "id", None),
             getattr(chat, "id", None),
             msg_type,
             ts,
+            is_forwarded,
         )
 
         # ensure user record
@@ -165,7 +169,7 @@ class CookieBot:
         except Exception:
             logger.exception("无法记录群聊 %s", getattr(chat, "id", None))
 
-        await self._add_exp(user, chat, msg_type, ts, update, context)
+        await self._add_exp(user, chat, msg_type, ts, update, context, is_forwarded)
 
         # optional playful reply (喵喵语) with low probability
         if random.random() < 0.02:
@@ -1073,10 +1077,16 @@ ID: <code>{user.id}</code>
         except Exception as e:
             logger.exception("检查用户升级时发生错误: %s", e)
 
-    async def _add_exp(self, user, chat, msg_type, ts, update, context):
+    async def _add_exp(
+        self, user, chat, msg_type, ts, update, context, is_forwarded=False
+    ):
         # compute points and daily cap
         points_map = self.cfg.get("experience", "points", default={})
-        point = int(points_map.get(msg_type, points_map.get("text", 1)))
+        # 如果是转发的消息，只增加1点经验
+        if is_forwarded:
+            point = 1
+        else:
+            point = int(points_map.get(msg_type, points_map.get("text", 1)))
         daily_limit = int(self.cfg.get("experience", "daily_limit", default=150) or 150)
 
         # today's range
