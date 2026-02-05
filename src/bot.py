@@ -138,7 +138,11 @@ class CookieBot:
             return
 
         # 检查是否是转发的消息
-        is_forwarded = bool(m.forward_date or m.forward_from or m.forward_from_chat)
+        is_forwarded = bool(
+            getattr(m, "forward_date", None)
+            or getattr(m, "forward_from", None)
+            or getattr(m, "forward_from_chat", None)
+        )
 
         logger.debug(
             "收到消息: user=%s chat=%s type=%s ts=%s forwarded=%s",
