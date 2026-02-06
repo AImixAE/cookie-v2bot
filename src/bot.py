@@ -132,6 +132,15 @@ class CookieBot:
         msg_type = self._msg_type(m)
         ts = int(m.date.timestamp())
 
+        # 检查是否是编辑过的消息
+        if getattr(m, "edit_date", None) or getattr(update, "edited_message", None):
+            logger.debug(
+                "忽略编辑过的消息: user=%s, msg_id=%s",
+                getattr(user, "id", None),
+                getattr(m, "message_id", None),
+            )
+            return
+
         # 检查是否是私聊，如果是则不处理
         if chat.id == user.id:
             logger.debug("忽略私聊消息: user=%s", getattr(user, "id", None))
