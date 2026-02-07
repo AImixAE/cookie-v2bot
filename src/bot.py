@@ -991,10 +991,10 @@ ID: <code>{user.id}</code>
             card_info = next((c for c in all_cards if c["name"] == card_name), None)
             if card_info:
                 lines.append(
-                    f"{card_info['emoji']} <b>{card_info['name']}</b> — 数量: {count}"
+                    f"{card_info['emoji']} <b><code>{card_info['name']}</code></b> — 数量: {count}"
                 )
             else:
-                lines.append(f"<b>{card_name}</b> — 数量: {count}")
+                lines.append(f"<b><code>{card_name}</code></b> — 数量: {count}")
                 warnings.append(f"卡片 {card_name}")
 
         if not lines:

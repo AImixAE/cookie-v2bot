@@ -104,7 +104,7 @@ def cleanup_logs():
         print(f"[green]✅  无过期日志文件需要清理[/green]")
 
 
-def check_git_update(ask_pull=False, restart_after_pull=False):
+def check_git_update(ask_pull=False):
     """Check if git repository needs update"""
     try:
         # 检查是否在 git 仓库中
@@ -144,14 +144,6 @@ def check_git_update(ask_pull=False, restart_after_pull=False):
                                 text=True,
                             )
                             print("[green]✅  已成功拉取远程更新[/green]")
-                            # 如果需要在 pull 后重新运行
-                            if restart_after_pull:
-                                print("[yellow]🔄  正在重新启动程序...[/yellow]")
-                                # 使用当前 Python 解释器重新运行程序
-                                # 使用 subprocess 启动新进程，确保当前进程完全退出
-                                subprocess.Popen([sys.executable] + sys.argv)
-                                # 退出当前进程
-                                sys.exit(0)
                         except subprocess.CalledProcessError as e:
                             print(f"[red]❌  拉取远程更新失败: {e}[/red]")
                     return True
@@ -239,7 +231,7 @@ def bot():
     if not env_no_update:
         # 使用多线程在后台执行 git 更新检查（询问是否 pull，pull 后重新运行）
         git_thread = threading.Thread(
-            target=check_git_update, args=(True, True), daemon=True
+            target=check_git_update, args=(True,), daemon=True
         )
         git_thread.start()
         print("[green]已启动 git 更新检查（后台运行）[/green]")
