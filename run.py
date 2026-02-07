@@ -176,6 +176,7 @@ def bot():
     from src.bot import CookieBot
 
     token = os.getenv("BOT_TOKEN")
+    print("[green]初始化 bot[/green]")
     b = CookieBot(token=token)
     print("[green]开始运行 bot[/green]")
     b.app.run_polling()
