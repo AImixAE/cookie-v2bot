@@ -377,7 +377,7 @@ class Database:
         chat_id: int,
         start_ts: Optional[int] = None,
         end_ts: Optional[int] = None,
-        limit: int = 10,
+        limit: Optional[int] = 10,
         sort_by: str = "exp",
     ):
         q = """
@@ -401,8 +401,10 @@ class Database:
             q += " AND m.ts < ?"
             params.append(end_ts)
         order_by = "exp" if sort_by == "exp" else "cnt"
-        q += f" GROUP BY m.user_id ORDER BY {order_by} DESC LIMIT ?"
-        params.append(limit)
+        q += f" GROUP BY m.user_id ORDER BY {order_by} DESC"
+        if limit is not None:
+            q += " LIMIT ?"
+            params.append(limit)
         cur = self.conn.cursor()
         cur.execute(q, params)
         return cur.fetchall()
@@ -516,6 +518,27 @@ class Database:
             (user_id, card, ts),
         )
         self.conn.commit()
+
+    def remove_user_card(
+        self,
+        user_id: int,
+        card: str,
+        count: int = 1,
+    ):
+        """删除用户的卡片"""
+        cur = self.conn.cursor()
+        # 从最新的卡片开始删除
+        cur.execute(
+            """
+            DELETE FROM cards
+            WHERE user_id = ? AND card = ?
+            ORDER BY ts DESC
+            LIMIT ?
+            """,
+            (user_id, card, count),
+        )
+        self.conn.commit()
+        return cur.rowcount
 
     def get_user_cards(self, user_id: int) -> list[str]:
         cur = self.conn.cursor()

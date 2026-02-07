@@ -90,6 +90,7 @@ class CookieBot:
         self.app.add_handler(CommandHandler("mybadges", self.cmd_my_badges))
         self.app.add_handler(CommandHandler("mycards", self.cmd_my_cards))
         self.app.add_handler(CommandHandler("buycard", self.cmd_buy_card))
+        self.app.add_handler(CommandHandler("returncard", self.cmd_return_card))
         self.app.add_handler(CommandHandler("myinfo", self.cmd_myinfo))
         self.app.add_handler(CommandHandler("leaderboard", self.cmd_leaderboard))
         self.app.add_handler(
@@ -218,7 +219,7 @@ class CookieBot:
         """处理 /help 命令"""
         user = update.effective_user
         logger.info("用户 %s 执行了命令 /help", getattr(user, "id", None))
-        msg = """🐱 <b>喵喵成长日记 - 命令帮助</b>
+        msg = f"""🐱 <b>喵喵成长日记 - 命令帮助</b>
 
 <b>📊 个人信息</b>
 /myinfo - 查看你的个人信息和成长数据
@@ -234,6 +235,8 @@ class CookieBot:
 /leaderboard - 查看昨日排行榜（top 10）
 /leaderboard all - 查看全部时间排行榜
 /leaderboard daily exp - 以经验值排序查看昨日排行榜
+/leaderboard daily (type) (limit) - 以指定类型排序查看昨日排行榜
+  • (type: exp/msg, limit: 1-100)
 
 <b>📈 统计报告</b>
 /yesterday_report - 查看昨日统计报告
@@ -247,6 +250,7 @@ class CookieBot:
 
 <b>🏬 购买</b>
 /buycard (id) - 购买一个卡片
+/returncard (id) - 返回一个卡片（仅可返回最近购买的卡片）
 
 <b>🔧 系统命令</b>
 /start - 显示欢迎信息
@@ -371,24 +375,35 @@ ID: <code>{user.id}</code>
         args = context.args or []
         mode = args[0] if args else "daily"
         sort_by = args[1] if len(args) > 1 else "msg"
+        # 解析数量限制参数
+        limit = int(args[2]) if len(args) > 2 and args[2].isdigit() else 10
         user = update.effective_user
         logger.info(
-            "用户 %s 执行了命令 /leaderboard (mode=%s, sort_by=%s)",
+            "用户 %s 执行了命令 /leaderboard (mode=%s, sort_by=%s, limit=%s)",
             getattr(user, "id", None),
             mode,
             sort_by,
+            limit,
         )
         chat = update.effective_chat
         if mode == "all":
             rows = self.db.get_leaderboard_with_names(
-                chat.id, start_ts=None, end_ts=None, limit=10, sort_by=sort_by
+                chat.id,
+                start_ts=None,
+                end_ts=None,
+                limit=limit if limit > 0 else None,
+                sort_by=sort_by,
             )
             title = "🏆 全部排行榜"
             emoji = "🎯"
         else:
             y_start, y_end = midnight_range_for_yesterday()
             rows = self.db.get_leaderboard_with_names(
-                chat.id, start_ts=y_start, end_ts=y_end, limit=10, sort_by=sort_by
+                chat.id,
+                start_ts=y_start,
+                end_ts=y_end,
+                limit=limit if limit > 0 else None,
+                sort_by=sort_by,
             )
             title = "🏆 昨日排行榜"
             emoji = "🔥"
@@ -440,13 +455,20 @@ ID: <code>{user.id}</code>
         self, update: Update, context: ContextTypes.DEFAULT_TYPE
     ):
         # manual trigger: report yesterday stats for this chat
+        args = context.args or []
+        # 解析数量限制参数
+        limit = int(args[0]) if args and args[0].isdigit() else -1
         user = update.effective_user
-        logger.info("用户 %s 执行了命令 /yesterday_report", getattr(user, "id", None))
+        logger.info(
+            "用户 %s 执行了命令 /yesterday_report (limit=%s)",
+            getattr(user, "id", None),
+            limit,
+        )
         chat = update.effective_chat
         y_start, y_end = midnight_range_for_yesterday()
         total = self.db.get_total_messages(start_ts=y_start, end_ts=y_end)
         rows = self.db.get_leaderboard_with_names(
-            chat.id, start_ts=y_start, end_ts=y_end, limit=10
+            chat.id, start_ts=y_start, end_ts=y_end, limit=limit if limit > 0 else None
         )
 
         def format_name(r):
@@ -504,14 +526,19 @@ ID: <code>{user.id}</code>
             last = r["last_name"] or ""
             username = r["username"]
             name_parts = [p for p in [first, last] if p]
-            name = " ".join(name_parts) if name_parts else f"ID:{r['user_id']}"
+            if name_parts:
+                name = " ".join(name_parts)
+            elif username:
+                name = f"@{username}"
+            else:
+                name = f"(user_id={r['user_id']})"
             if username:
                 return f'<a href="t.me/{username}">{name}</a>'
             return name
 
         for cid in chats:
             rows = self.db.get_leaderboard_with_names(
-                cid, start_ts=y_start, end_ts=y_end, limit=10
+                cid, start_ts=y_start, end_ts=y_end, limit=None
             )
 
             if not rows:
@@ -1035,6 +1062,51 @@ ID: <code>{user.id}</code>
         user_name = user.full_name or user.username or f"用户{user.id}"
         card_msg = f"🎁 <b>恭喜 <a href='tg://user?id={user.id}'>{user_name}</a> 购买成功！</b>\n\n{card_info['emoji']} <b>{card_info['name']}</b>\n{card_info['description']}\n\n消耗了 {card_point} 经验值，剩余 {user_exp - card_point} 经验值\n\n现在你可以使用这张卡片了！"
         await update.effective_message.reply_html(card_msg)
+
+    async def cmd_return_card(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        user = update.effective_user
+        logger.info("用户 %s 执行了命令 /returncard", getattr(user, "id", None))
+
+        # 获取命令参数
+        args = context.args or []
+        if not args:
+            await update.effective_message.reply_html(
+                "请指定要退回的卡片名称和数量（可选，默认为1），例如：/returncard xxx 2"
+            )
+            return
+
+        # 获取卡片名称和退回数量
+        if len(args) > 1 and args[-1].isdigit():
+            card_name = " ".join(args[:-1])
+            count = int(args[-1])
+        else:
+            card_name = " ".join(args)
+            count = 1
+
+        if count <= 0:
+            await update.effective_message.reply_html("退回数量必须大于0")
+            return
+
+        # 获取用户的卡片
+        user_cards = self.db.get_user_cards(user.id)
+        # 统计用户拥有的该卡片数量
+        card_count = user_cards.count(card_name)
+
+        if card_count < count:
+            await update.effective_message.reply_html(
+                f"你只有 {card_count} 张 {card_name} 卡片，无法退回 {count} 张"
+            )
+            return
+
+        # 删除卡片
+        deleted_count = self.db.remove_user_card(user.id, card_name, count)
+        logger.info("用户 %s 退回了 %d 张卡片: %s", user.id, deleted_count, card_name)
+
+        # 回复用户
+        user_name = user.full_name or user.username or f"用户{user.id}"
+        await update.effective_message.reply_html(
+            f"✅ <b>退回成功！</b>\n\n{user_name} 退回了 {deleted_count} 张 {card_name} 卡片"
+        )
 
     def _calculate_level_from_exp(self, exp):
         """
