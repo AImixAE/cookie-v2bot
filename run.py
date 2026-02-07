@@ -148,7 +148,12 @@ def check_git_update(ask_pull=False, restart_after_pull=False):
                             if restart_after_pull:
                                 print("[yellow]🔄  正在重新启动程序...[/yellow]")
                                 # 使用当前 Python 解释器重新运行程序
-                                os.execv(sys.executable, [sys.executable] + sys.argv)
+                                # 使用 subprocess 启动新进程，确保当前进程完全退出
+                                import subprocess
+
+                                subprocess.Popen([sys.executable] + sys.argv)
+                                # 退出当前进程
+                                sys.exit(0)
                         except subprocess.CalledProcessError as e:
                             print(f"[red]❌  拉取远程更新失败: {e}[/red]")
                     return True
@@ -241,7 +246,12 @@ def bot():
         git_thread.start()
         print("[green]已启动 git 更新检查（后台运行）[/green]")
 
-    b.app.run_polling()
+    try:
+        b.app.run_polling()
+    except KeyboardInterrupt:
+        print("[yellow]⚠️  收到中断信号，正在退出...[/yellow]")
+    except Exception as e:
+        print(f"[red]❌  运行出错: {e}[/red]")
 
 
 @main.command()
