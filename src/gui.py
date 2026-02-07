@@ -644,9 +644,9 @@ class CookieBotGUI(QMainWindow):
         self.yesterday_leaderboard_tab = QWidget()
         yesterday_layout = QVBoxLayout(self.yesterday_leaderboard_tab)
         self.yesterday_leaderboard_table = QTableWidget()
-        self.yesterday_leaderboard_table.setColumnCount(4)
+        self.yesterday_leaderboard_table.setColumnCount(3)
         self.yesterday_leaderboard_table.setHorizontalHeaderLabels(
-            ["排名", "用户名", "消息数", "经验值"]
+            ["用户名", "消息数", "经验值"]
         )
         self.yesterday_leaderboard_table.horizontalHeader().setSectionResizeMode(
             QHeaderView.Stretch
@@ -662,9 +662,9 @@ class CookieBotGUI(QMainWindow):
         self.today_leaderboard_tab = QWidget()
         today_layout = QVBoxLayout(self.today_leaderboard_tab)
         self.today_leaderboard_table = QTableWidget()
-        self.today_leaderboard_table.setColumnCount(4)
+        self.today_leaderboard_table.setColumnCount(3)
         self.today_leaderboard_table.setHorizontalHeaderLabels(
-            ["排名", "用户名", "消息数", "经验值"]
+            ["用户名", "消息数", "经验值"]
         )
         self.today_leaderboard_table.horizontalHeader().setSectionResizeMode(
             QHeaderView.Stretch
@@ -680,9 +680,9 @@ class CookieBotGUI(QMainWindow):
         self.all_leaderboard_tab = QWidget()
         all_layout = QVBoxLayout(self.all_leaderboard_tab)
         self.all_leaderboard_table = QTableWidget()
-        self.all_leaderboard_table.setColumnCount(4)
+        self.all_leaderboard_table.setColumnCount(3)
         self.all_leaderboard_table.setHorizontalHeaderLabels(
-            ["排名", "用户名", "消息数", "经验值"]
+            ["用户名", "消息数", "经验值"]
         )
         self.all_leaderboard_table.horizontalHeader().setSectionResizeMode(
             QHeaderView.Stretch
@@ -787,16 +787,13 @@ class CookieBotGUI(QMainWindow):
 
             # 添加数据
             self.yesterday_leaderboard_table.setItem(
-                row_position, 0, QTableWidgetItem(str(i))
+                row_position, 0, QTableWidgetItem(display_name)
             )
             self.yesterday_leaderboard_table.setItem(
-                row_position, 1, QTableWidgetItem(display_name)
+                row_position, 1, QTableWidgetItem(str(msg_count))
             )
             self.yesterday_leaderboard_table.setItem(
-                row_position, 2, QTableWidgetItem(str(msg_count))
-            )
-            self.yesterday_leaderboard_table.setItem(
-                row_position, 3, QTableWidgetItem(str(exp))
+                row_position, 2, QTableWidgetItem(str(exp))
             )
 
         # 更新昨日用户数量
@@ -831,16 +828,13 @@ class CookieBotGUI(QMainWindow):
 
             # 添加数据
             self.today_leaderboard_table.setItem(
-                row_position, 0, QTableWidgetItem(str(i))
+                row_position, 0, QTableWidgetItem(display_name)
             )
             self.today_leaderboard_table.setItem(
-                row_position, 1, QTableWidgetItem(display_name)
+                row_position, 1, QTableWidgetItem(str(msg_count))
             )
             self.today_leaderboard_table.setItem(
-                row_position, 2, QTableWidgetItem(str(msg_count))
-            )
-            self.today_leaderboard_table.setItem(
-                row_position, 3, QTableWidgetItem(str(exp))
+                row_position, 2, QTableWidgetItem(str(exp))
             )
 
         # 更新今日用户数量
@@ -873,16 +867,13 @@ class CookieBotGUI(QMainWindow):
 
             # 添加数据
             self.all_leaderboard_table.setItem(
-                row_position, 0, QTableWidgetItem(str(i))
+                row_position, 0, QTableWidgetItem(display_name)
             )
             self.all_leaderboard_table.setItem(
-                row_position, 1, QTableWidgetItem(display_name)
+                row_position, 1, QTableWidgetItem(str(msg_count))
             )
             self.all_leaderboard_table.setItem(
-                row_position, 2, QTableWidgetItem(str(msg_count))
-            )
-            self.all_leaderboard_table.setItem(
-                row_position, 3, QTableWidgetItem(str(exp))
+                row_position, 2, QTableWidgetItem(str(exp))
             )
 
         # 更新全部用户数量
