@@ -527,13 +527,16 @@ class Database:
     ):
         """删除用户的卡片"""
         cur = self.conn.cursor()
-        # 从最新的卡片开始删除
+        # 使用子查询获取要删除的记录的 ROWID
         cur.execute(
             """
             DELETE FROM cards
-            WHERE user_id = ? AND card = ?
-            ORDER BY ts DESC
-            LIMIT ?
+            WHERE rowid IN (
+                SELECT rowid FROM cards
+                WHERE user_id = ? AND card = ?
+                ORDER BY ts DESC
+                LIMIT ?
+            )
             """,
             (user_id, card, count),
         )

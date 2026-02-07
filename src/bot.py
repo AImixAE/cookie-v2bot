@@ -1019,12 +1019,22 @@ ID: <code>{user.id}</code>
         args = context.args or []
         if not args:
             await update.effective_message.reply_html(
-                "请指定要购买的卡片名称，例如：/buycard xxx"
+                "请指定要购买的卡片名称和数量（可选，默认为1），例如：/buycard xxx 2"
             )
             return
 
-        # 获取卡片名称
-        card_name = " ".join(args)
+        # 获取卡片名称和购买数量
+        if len(args) > 1 and args[-1].isdigit():
+            card_name = " ".join(args[:-1])
+            count = int(args[-1])
+        else:
+            card_name = " ".join(args)
+            count = 1
+
+        if count <= 0:
+            await update.effective_message.reply_html("购买数量必须大于0")
+            return
+
         # 获取所有卡片
         all_cards: list = self.cards.get("cards", default=[])
         # 查找对应的卡片信息
@@ -1042,25 +1052,41 @@ ID: <code>{user.id}</code>
             )
             return
 
+        # 计算总消耗
+        total_point = card_point * count
+
         # 获取用户当前经验值
         user_exp = self.db.get_user_exp(user.id)
-        if user_exp < card_point:
+        if user_exp < total_point:
             await update.effective_message.reply_html(
-                f"经验值不足！需要 {card_point} 经验值，当前只有 {user_exp} 经验值"
+                f"经验值不足！需要 {total_point} 经验值，当前只有 {user_exp} 经验值"
             )
             return
 
         # 消耗经验值
-        self.db.add_user_exp(user.id, -card_point)
-        # 添加卡片
-        self.db.add_user_card(user.id, card_name)
+        self.db.add_user_exp(user.id, -total_point)
+        # 批量添加卡片
+        for _ in range(count):
+            self.db.add_user_card(user.id, card_name)
         logger.info(
-            "用户 %s 购买了卡片: %s，消耗了 %s 经验值", user.id, card_name, card_point
+            "用户 %s 购买了 %d 张卡片: %s，消耗了 %s 经验值",
+            user.id,
+            count,
+            card_name,
+            total_point,
         )
 
         # 回复用户
-        user_name = user.full_name or user.username or f"用户{user.id}"
-        card_msg = f"🎁 <b>恭喜 <a href='tg://user?id={user.id}'>{user_name}</a> 购买成功！</b>\n\n{card_info['emoji']} <b>{card_info['name']}</b>\n{card_info['description']}\n\n消耗了 {card_point} 经验值，剩余 {user_exp - card_point} 经验值\n\n现在你可以使用这张卡片了！"
+        # 格式化用户名
+        first = getattr(user, "first_name", "") or ""
+        last = getattr(user, "last_name", "") or ""
+        username = getattr(user, "username", "")
+        name_parts = [p for p in [first, last] if p]
+        name = " ".join(name_parts) if name_parts else f"ID:{user.id}"
+        formatted_name = (
+            f'<a href="t.me/{username}"><b>{name}</b></a>' if username else name
+        )
+        card_msg = f"🎁 <b>恭喜 {formatted_name} 购买成功！</b>\n\n{card_info['emoji']} <b>{card_info['name']}</b> × {count}\n{card_info['description']}\n\n消耗了 {total_point} 经验值，剩余 {user_exp - total_point} 经验值\n\n现在你可以使用这张卡片了！"
         await update.effective_message.reply_html(card_msg)
 
     async def cmd_return_card(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -1087,6 +1113,23 @@ ID: <code>{user.id}</code>
             await update.effective_message.reply_html("退回数量必须大于0")
             return
 
+        # 获取所有卡片
+        all_cards: list = self.cards.get("cards", default=[])
+        # 查找对应的卡片信息
+        card_info = next((c for c in all_cards if c["name"] == card_name), None)
+
+        if not card_info:
+            await update.effective_message.reply_html(f"未找到卡片：{card_name}")
+            return
+
+        # 获取卡片价格
+        card_point = card_info.get("point", 0)
+        if card_point <= 0:
+            await update.effective_message.reply_html(
+                f"卡片 {card_name} 价格未设置，无法退回"
+            )
+            return
+
         # 获取用户的卡片
         user_cards = self.db.get_user_cards(user.id)
         # 统计用户拥有的该卡片数量
@@ -1100,12 +1143,32 @@ ID: <code>{user.id}</code>
 
         # 删除卡片
         deleted_count = self.db.remove_user_card(user.id, card_name, count)
-        logger.info("用户 %s 退回了 %d 张卡片: %s", user.id, deleted_count, card_name)
+        # 返还经验值
+        refund_point = card_point * deleted_count
+        self.db.add_user_exp(user.id, refund_point)
+        logger.info(
+            "用户 %s 退回了 %d 张卡片: %s，返还了 %d 经验值",
+            user.id,
+            deleted_count,
+            card_name,
+            refund_point,
+        )
+
+        # 获取用户当前经验值
+        current_exp = self.db.get_user_exp(user.id)
 
         # 回复用户
-        user_name = user.full_name or user.username or f"用户{user.id}"
+        # 格式化用户名
+        first = getattr(user, "first_name", "") or ""
+        last = getattr(user, "last_name", "") or ""
+        username = getattr(user, "username", "")
+        name_parts = [p for p in [first, last] if p]
+        name = " ".join(name_parts) if name_parts else f"ID:{user.id}"
+        formatted_name = (
+            f'<a href="t.me/{username}"><b>{name}</b></a>' if username else name
+        )
         await update.effective_message.reply_html(
-            f"✅ <b>退回成功！</b>\n\n{user_name} 退回了 {deleted_count} 张 {card_name} 卡片"
+            f"✅ <b>退回成功！</b>\n\n{formatted_name} 退回了 {deleted_count} 张 {card_name} 卡片\n\n💰 返还了 {refund_point} 经验值\n📊 当前经验值：{current_exp}"
         )
 
     def _calculate_level_from_exp(self, exp):
