@@ -149,8 +149,6 @@ def check_git_update(ask_pull=False, restart_after_pull=False):
                                 print("[yellow]🔄  正在重新启动程序...[/yellow]")
                                 # 使用当前 Python 解释器重新运行程序
                                 # 使用 subprocess 启动新进程，确保当前进程完全退出
-                                import subprocess
-
                                 subprocess.Popen([sys.executable] + sys.argv)
                                 # 退出当前进程
                                 sys.exit(0)
