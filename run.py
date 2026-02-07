@@ -2,6 +2,7 @@ import os
 import sys
 import subprocess
 import click
+import threading
 from dotenv import load_dotenv
 from rich import print
 import datetime
@@ -164,7 +165,9 @@ def main(no_update_check, no_log_cleanup):
     if env_no_update:
         no_update_check = True
     if not no_update_check:
-        check_git_update()
+        # 使用多线程在后台执行 git 更新检查
+        git_thread = threading.Thread(target=check_git_update, daemon=True)
+        git_thread.start()
 
 
 @main.command()
