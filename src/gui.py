@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QGridLayout,
     QSpinBox,
+    QCheckBox,
     QMessageBox,
     QHeaderView,
     QMenu,
@@ -606,8 +607,33 @@ class CookieBotGUI(QMainWindow):
         self.sort_combo = QComboBox()
         self.sort_combo.addItem("按经验值", "exp")
         self.sort_combo.addItem("按消息数", "msg")
+        # 排序方式变化时自动查询
+        self.sort_combo.currentIndexChanged.connect(self.query_leaderboard)
+
+        # 添加排行榜限制数量选择
+        limit_label = QLabel("显示数量:")
+        self.limit_spinbox = QSpinBox()
+        self.limit_spinbox.setMinimum(1)
+        self.limit_spinbox.setMaximum(100)
+        self.limit_spinbox.setValue(10)
+        self.limit_spinbox.setToolTip("排行榜最大显示数量")
+        # 显示数量变化时自动查询
+        self.limit_spinbox.valueChanged.connect(self.query_leaderboard)
+
+        # 添加全部显示复选框
+        self.show_all_checkbox = QCheckBox("全部显示")
+        self.show_all_checkbox.setToolTip("显示全部排行榜数据")
+        self.show_all_checkbox.stateChanged.connect(self.toggle_limit_input)
+        # 全部显示状态变化时自动查询
+        self.show_all_checkbox.stateChanged.connect(self.query_leaderboard)
+
         sort_layout.addWidget(sort_label)
         sort_layout.addWidget(self.sort_combo)
+        sort_layout.addSpacing(20)
+        sort_layout.addWidget(limit_label)
+        sort_layout.addWidget(self.limit_spinbox)
+        sort_layout.addSpacing(10)
+        sort_layout.addWidget(self.show_all_checkbox)
         sort_layout.addStretch()
         layout.addLayout(sort_layout)
 
@@ -692,6 +718,10 @@ class CookieBotGUI(QMainWindow):
         # 执行查询
         self.query_leaderboard()
 
+    def toggle_limit_input(self, state):
+        """切换数量输入框的启用状态"""
+        self.limit_spinbox.setEnabled(not state)
+
     def query_leaderboard(self):
         """查询排行榜"""
         # 获取群组ID
@@ -704,6 +734,11 @@ class CookieBotGUI(QMainWindow):
 
         # 获取排序方式
         sort_by = self.sort_combo.currentData()
+        # 获取显示数量
+        if self.show_all_checkbox.isChecked():
+            limit = None
+        else:
+            limit = self.limit_spinbox.value()
 
         # 计算时间范围
         today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
@@ -715,14 +750,14 @@ class CookieBotGUI(QMainWindow):
             chat_id,
             start_ts=yesterday_start,
             end_ts=yesterday_end,
-            # limit=10,
+            limit=limit,
             sort_by=sort_by,
         )
         today_leaderboard = self.db.get_leaderboard_with_names(
-            chat_id, start_ts=today_ts, end_ts=None, limit=10, sort_by=sort_by
+            chat_id, start_ts=today_ts, end_ts=None, limit=limit, sort_by=sort_by
         )
         all_leaderboard = self.db.get_leaderboard_with_names(
-            chat_id, start_ts=None, end_ts=None, limit=10, sort_by=sort_by
+            chat_id, start_ts=None, end_ts=None, limit=limit, sort_by=sort_by
         )
 
         # 填充昨日排行榜
