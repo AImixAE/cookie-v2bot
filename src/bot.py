@@ -469,7 +469,12 @@ ID: <code>{user.id}</code>
             medals = ["🥇", "🥈", "🥉"]
             lines = []
             for i, r in enumerate(rows):
-                medal = medals[i] if i < 3 else f"{i+1}️⃣"
+                if i < 3:
+                    medal = medals[i]
+                # elif i < 9:
+                #     medal = f"{i+1}️⃣"
+                else:
+                    medal = f"{i+1} |"
                 lines.append(
                     f"{medal} {format_name(r)} — <code>{r['cnt']}</code> 条消息"
                 )
@@ -521,7 +526,12 @@ ID: <code>{user.id}</code>
                 medals = ["🥇", "🥈", "🥉"]
                 lines = []
                 for i, r in enumerate(rows):
-                    medal = medals[i] if i < 3 else f"{i+1}️⃣"
+                    if i < 3:
+                        medal = medals[i]
+                    # elif i < 9:
+                    #     medal = f"{i+1}️⃣"
+                    else:
+                        medal = f"{i+1} |"
                     lines.append(f"{medal} {format_name(r)} — <code>{r['cnt']}</code>")
 
                 txt = (
