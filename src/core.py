@@ -9,6 +9,12 @@ def midnight_range_for_yesterday():
     return int(yesterday.timestamp()), int(today.timestamp())
 
 
+def midnight_range_for_today():
+    today = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+    tomorrow = today + timedelta(days=1)
+    return int(today.timestamp()), int(tomorrow.timestamp())
+
+
 def format_file_size(size_bytes):
     """将字节数转换为易读的文件大小格式
     

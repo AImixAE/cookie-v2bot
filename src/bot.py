@@ -12,7 +12,7 @@ from telegram.ext import (
     filters,
 )
 
-from src.core import midnight_range_for_yesterday
+from src.core import midnight_range_for_yesterday, midnight_range_for_today
 from src.database import Database
 from src.config_loader import Config
 
@@ -147,20 +147,12 @@ class CookieBot:
             logger.debug("忽略私聊消息: user=%s", getattr(user, "id", None))
             return
 
-        # 检查是否是转发的消息
-        is_forwarded = bool(
-            getattr(m, "forward_date", None)
-            or getattr(m, "forward_from", None)
-            or getattr(m, "forward_from_chat", None)
-        )
-
         logger.debug(
-            "收到消息: user=%s chat=%s type=%s ts=%s forwarded=%s",
+            "收到消息: user=%s chat=%s type=%s ts=%s",
             getattr(user, "id", None),
             getattr(chat, "id", None),
             msg_type,
             ts,
-            is_forwarded,
         )
 
         # ensure user record
@@ -183,7 +175,7 @@ class CookieBot:
         except Exception:
             logger.exception("无法记录群聊 %s", getattr(chat, "id", None))
 
-        await self._add_exp(user, chat, msg_type, ts, update, context, is_forwarded)
+        await self._add_exp(user, chat, msg_type, ts, update, context)
 
         # optional playful reply (喵喵语) with low probability
         if random.random() < 0.02:
@@ -376,7 +368,10 @@ ID: <code>{user.id}</code>
         mode = args[0] if args else "daily"
         sort_by = args[1] if len(args) > 1 else "msg"
         # 解析数量限制参数
-        limit = int(args[2]) if len(args) > 2 and args[2].isdigit() else 10
+        try:
+            limit = int(args[2]) if len(args) > 2 else 10
+        except ValueError:
+            limit = 10
         user = update.effective_user
         logger.info(
             "用户 %s 执行了命令 /leaderboard (mode=%s, sort_by=%s, limit=%s)",
@@ -396,6 +391,17 @@ ID: <code>{user.id}</code>
             )
             title = "🏆 全部排行榜"
             emoji = "🎯"
+        elif mode == "today":
+            t_start, t_end = midnight_range_for_today()
+            rows = self.db.get_leaderboard_with_names(
+                chat.id,
+                start_ts=t_start,
+                end_ts=t_end,
+                limit=limit if limit > 0 else None,
+                sort_by=sort_by,
+            )
+            title = "🏆 今日排行榜"
+            emoji = "☀️"
         else:
             y_start, y_end = midnight_range_for_yesterday()
             rows = self.db.get_leaderboard_with_names(
@@ -457,7 +463,10 @@ ID: <code>{user.id}</code>
         # manual trigger: report yesterday stats for this chat
         args = context.args or []
         # 解析数量限制参数
-        limit = int(args[0]) if args and args[0].isdigit() else -1
+        try:
+            limit = int(args[0]) if args else -1
+        except ValueError:
+            limit = -1
         user = update.effective_user
         logger.info(
             "用户 %s 执行了命令 /yesterday_report (limit=%s)",
@@ -1235,16 +1244,10 @@ ID: <code>{user.id}</code>
         except Exception as e:
             logger.exception("检查用户升级时发生错误: %s", e)
 
-    async def _add_exp(
-        self, user, chat, msg_type, ts, update, context, is_forwarded=False
-    ):
+    async def _add_exp(self, user, chat, msg_type, ts, update, context):
         # compute points and daily cap
         points_map = self.cfg.get("experience", "points", default={})
-        # 如果是转发的消息，只增加1点经验
-        if is_forwarded:
-            point = 1
-        else:
-            point = int(points_map.get(msg_type, points_map.get("text", 1)))
+        point = int(points_map.get(msg_type, points_map.get("text", 1)))
         daily_limit = int(self.cfg.get("experience", "daily_limit", default=150) or 150)
 
         # today's range
