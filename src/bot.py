@@ -97,8 +97,8 @@ class CookieBot:
             CommandHandler("yesterday_report", self.cmd_yesterday_report)
         )
 
-        self.daily_time = dtime(hour=0, minute=0, second=5)
-        self.badge_time = dtime(hour=0, minute=0, second=10)
+        self.daily_time = dtime(hour=2, minute=0, second=5)
+        self.badge_time = dtime(hour=2, minute=0, second=10)
 
         self.app.job_queue.run_daily(self.daily_job, time=self.daily_time)
         self.app.job_queue.run_daily(self.badge_job, time=self.badge_time)
