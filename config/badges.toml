@@ -5,13 +5,31 @@ description = "今日消息数量排名第一"
 type = ["send_message_top", "==", "1"]
 
 [[badges]]
+name = "不懈怠"
+emoji = "😸"
+description = "今日消息数量排名第二"
+type = ["send_message_top", "==", "2"]
+
+[[badges]]
 name = "乐着呢"
 emoji = "😸"
 description = "今日贴纸数量排名第一"
 type = ["send_sticker_top", "==", "1"]
 
 [[badges]]
+name = "气氛组"
+emoji = "😸"
+description = "今日贴纸数量排名第二"
+type = ["send_sticker_top", "==", "2"]
+
+[[badges]]
 name = "图王"
 emoji = "😸"
 description = "今日图片数量排名第一"
 type = ["send_image_top", "==", "1"]
+
+[[badges]]
+name = "欣赏派"
+emoji = "😸"
+description = "今日图片数量排名第二"
+type = ["send_image_top", "==", "2"]

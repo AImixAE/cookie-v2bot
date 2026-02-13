@@ -17,6 +17,18 @@ description = "发送消息总数达到 500 条"
 type = ["send_message_count", ">=", "500"]
 
 [[achievements]]
+name = "小小猫 2"
+emoji = "😸"
+description = "发送消息总数达到 1000 条"
+type = ["send_message_count", ">=", "1000"]
+
+[[achievements]]
+name = "悬浮猫 2"
+emoji = "😺"
+description = "发送消息总数达到 1500 条"
+type = ["send_message_count", ">=", "1500"]
+
+[[achievements]]
 name = "图吧猫"
 emoji = "🖼️"
 description = "发送图片达到 50 张"
