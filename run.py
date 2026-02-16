@@ -11,99 +11,6 @@ import glob
 load_dotenv()
 
 
-def cleanup_logs():
-    """清理超过1天的日志文件"""
-    # 获取日志目录路径，默认在 data/logs 目录
-    log_dir = os.getenv(
-        "LOG_DIR",
-        os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs"),
-    )
-
-    # 检查日志目录是否存在
-    if not os.path.exists(log_dir):
-        print(f"[yellow]⚠️  日志目录不存在: {log_dir}[/yellow]")
-        return
-
-    # 计算1天前的时间
-    one_day_ago = datetime.datetime.now() - datetime.timedelta(days=1)
-
-    # 查找所有日志文件
-    log_files = glob.glob(os.path.join(log_dir, "*.log"))
-
-    # 统计清理的文件数量
-    cleaned_count = 0
-    deleted_count = 0
-
-    # 遍历日志文件
-    for log_file in log_files:
-        try:
-            # 尝试获取文件的创建时间（birth time）
-            if sys.platform == "win32":
-                # Windows 平台
-                import win32file
-                import win32con
-
-                handle = win32file.CreateFile(
-                    log_file,
-                    win32con.GENERIC_READ,
-                    win32con.FILE_SHARE_READ
-                    | win32con.FILE_SHARE_WRITE
-                    | win32con.FILE_SHARE_DELETE,
-                    None,
-                    win32con.OPEN_EXISTING,
-                    win32con.FILE_FLAG_BACKUP_SEMANTICS,
-                    None,
-                )
-                creation_time = win32file.GetFileTime(handle)[0]
-                file_time = datetime.datetime.fromtimestamp(
-                    win32file.FileTimeToSystemTime(creation_time).GetTime()
-                )
-                win32file.CloseHandle(handle)
-            else:
-                # Unix 平台
-                stat_info = os.stat(log_file)
-                try:
-                    # 尝试获取创建时间
-                    file_time = datetime.datetime.fromtimestamp(stat_info.st_birthtime)
-                except AttributeError:
-                    # 如果不支持创建时间，则使用修改时间
-                    file_time = datetime.datetime.fromtimestamp(stat_info.st_mtime)
-        except Exception:
-            # 如果获取创建时间失败，则使用修改时间作为备选
-            file_time = datetime.datetime.fromtimestamp(os.path.getmtime(log_file))
-
-        # 如果文件时间超过1天，则清空或删除
-        if file_time < one_day_ago:
-            try:
-                # 尝试清空文件内容
-                with open(log_file, "w") as f:
-                    f.truncate()
-                cleaned_count += 1
-                print(
-                    f"[green]🗑️  清空过期日志文件: {os.path.basename(log_file)}[/green]"
-                )
-            except Exception as e:
-                # 如果清空失败，则尝试删除文件
-                try:
-                    os.remove(log_file)
-                    deleted_count += 1
-                    print(
-                        f"[yellow]⚠️  清空失败，删除过期日志文件: {os.path.basename(log_file)}[/yellow]"
-                    )
-                except Exception as e2:
-                    print(
-                        f"[red]❌  删除日志文件失败 {os.path.basename(log_file)}: {e2}[/red]"
-                    )
-
-    # 输出清理结果
-    if cleaned_count > 0:
-        print(f"[green]✅  清理完成，共清空 {cleaned_count} 个过期日志文件[/green]")
-    if deleted_count > 0:
-        print(f"[yellow]⚠️  清空失败，共删除 {deleted_count} 个过期日志文件[/yellow]")
-    if cleaned_count == 0 and deleted_count == 0:
-        print(f"[green]✅  无过期日志文件需要清理[/green]")
-
-
 def check_git_update(ask_pull=False):
     """Check if git repository needs update"""
     try:
@@ -168,41 +75,21 @@ def check_git_update(ask_pull=False):
 
 @click.group()
 @click.option("--no-update-check", is_flag=True, default=False, help="跳过更新检查")
-@click.option("--no-log-cleanup", is_flag=True, default=False, help="跳过日志清理")
-def main(no_update_check, no_log_cleanup):
+def main(no_update_check):
     """Run bot or cli/gui helpers"""
-    # 检查 .env 文件中的 NO_LOG_CLEANUP 环境变量
-    env_no_log_cleanup = os.getenv("NO_LOG_CLEANUP", "").lower() == "true"
-    # 如果 .env 中设置了 NO_LOG_CLEANUP，则使用其值
-    if env_no_log_cleanup:
-        no_log_cleanup = True
-
     # 检查 .env 文件中的 NO_UPDATE 环境变量
     env_no_update = os.getenv("NO_UPDATE", "").lower() == "true"
     # 如果 .env 中设置了 NO_UPDATE，则使用其值
     if env_no_update:
         no_update_check = True
 
-    # 清理过期日志文件和检查 git 更新（仅针对非 bot 和非 check 命令）
+    # 检查 git 更新（仅针对非 bot 和非 check 命令）
     command = sys.argv[1] if len(sys.argv) > 1 else None
     if command not in ["bot", "check"]:
-        if not no_log_cleanup:
-            cleanup_logs()
         if not no_update_check:
             # 使用多线程在后台执行 git 更新检查
             git_thread = threading.Thread(target=check_git_update, daemon=True)
             git_thread.start()
-
-
-def periodic_log_cleanup():
-    """定期清理过期日志文件"""
-    # 在后台线程中执行清理，避免阻塞
-    cleanup_thread = threading.Thread(target=cleanup_logs, daemon=True)
-    cleanup_thread.start()
-    # 1小时后再次执行
-    timer = threading.Timer(3600, periodic_log_cleanup)
-    timer.daemon = True
-    timer.start()
 
 
 @main.command()
@@ -214,17 +101,6 @@ def bot():
     print("[green]初始化 bot[/green]")
     b = CookieBot(token=token)
     print("[green]开始运行 bot[/green]")
-
-    # 检查是否需要定期清理日志
-    env_no_log_cleanup = os.getenv("NO_LOG_CLEANUP", "").lower() == "true"
-    if not env_no_log_cleanup:
-        # 立即执行一次日志清理
-        cleanup_logs()
-        # 启动定期日志清理任务
-        timer = threading.Timer(3600, periodic_log_cleanup)
-        timer.daemon = True
-        timer.start()
-        print("[green]已启动定期日志清理任务（每小时执行一次）[/green]")
 
     # 检查是否需要检查 git 更新
     env_no_update = os.getenv("NO_UPDATE", "").lower() == "true"
@@ -246,10 +122,7 @@ def bot():
 
 @main.command()
 def check():
-    """检查更新和清理日志"""
-    # 清理日志
-    cleanup_logs()
-
+    """检查更新"""
     # 检查 git 更新（询问是否 pull）
     check_git_update(ask_pull=True)
 
